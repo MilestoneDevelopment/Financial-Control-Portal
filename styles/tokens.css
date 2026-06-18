@@ -1,0 +1,65 @@
+/*
+ * Design tokens - Financial Control Portal
+ * Derived from the frozen handoff design system:
+ * Fira Sans (UI) + Atkinson Hyperlegible (numerals, tabular).
+ * Mono core + turquoise accent; finance semantics green/terracotta/amber.
+ */
+:root {
+  /* Brand / core */
+  --fcp-ink: #15171a;
+  --fcp-ink-strong: #0d0e10;
+  --fcp-sidebar: #0d0e10;
+  --fcp-sidebar-active: #191b1e;
+  --fcp-canvas: #e7e5df;
+  --fcp-surface: #ffffff;
+  --fcp-surface-2: #fafbfb;
+  --fcp-surface-3: #f7f8f9;
+
+  /* Accent (cyan-square motif) */
+  --fcp-accent: #2fd3ed;
+  --fcp-accent-strong: #22c3dc;
+  --fcp-accent-ink: #1499b8;
+  --fcp-accent-tint: #e5f7fb;
+
+  /* Gray ramp */
+  --fcp-gray-900: #23262b;
+  --fcp-gray-700: #3b4046;
+  --fcp-gray-600: #5b616b;
+  --fcp-gray-500: #6b7280;
+  --fcp-gray-400: #8a9099;
+  --fcp-gray-300: #c4c8ce;
+  --fcp-line: #e6e7ea;
+  --fcp-line-soft: #f1f2f4;
+
+  /* Finance semantics */
+  --fcp-favorable: #1f9d6b;
+  --fcp-favorable-bg: #e7f6ef;
+  --fcp-unfavorable: #d85544;
+  --fcp-unfavorable-bg: #fbecea;
+  --fcp-warning: #d88a1e;
+  --fcp-warning-bg: #fbf2e2;
+
+  /* Forecast column tint */
+  --fcp-forecast-bg: #f3f7f8;
+  --fcp-forecast-ink: #37576a;
+
+  /* Data-viz ramp (steel/periwinkle -> teal) */
+  --fcp-viz-1: #2fd3ed;
+  --fcp-viz-2: #2d7fad;
+  --fcp-viz-3: #6592db;
+  --fcp-viz-4: #809aed;
+  --fcp-viz-5: #9ba2ff;
+
+  /* Shape */
+  --fcp-radius-card: 12px;
+  --fcp-radius-control: 8px;
+  --fcp-shadow-card: 0 1px 2px rgba(0, 0, 0, 0.06);
+
+  /* Type */
+  --fcp-font-ui: "Fira Sans", Arial, system-ui, sans-serif;
+  --fcp-font-num: "Atkinson Hyperlegible", "Fira Sans", system-ui, sans-serif;
+
+  /* Layout */
+  --fcp-sidebar-w: 248px;
+  --fcp-topbar-h: 60px;
+}

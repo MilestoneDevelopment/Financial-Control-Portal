@@ -1,0 +1,40 @@
+@import "../styles/tokens.css";
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--fcp-font-ui);
+  color: var(--fcp-ink);
+  background: var(--fcp-canvas);
+  -webkit-font-smoothing: antialiased;
+  line-height: 1.5;
+}
+
+.num {
+  font-family: var(--fcp-font-num);
+  font-variant-numeric: tabular-nums;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: inherit;
+}
+
+/* Tabular numerals for any element carrying financial figures */
+[data-num] {
+  font-family: var(--fcp-font-num);
+  font-variant-numeric: tabular-nums;
+}

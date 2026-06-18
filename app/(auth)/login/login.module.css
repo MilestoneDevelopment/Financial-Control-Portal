@@ -1,0 +1,104 @@
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.card {
+  width: 100%;
+  max-width: 380px;
+  background: var(--fcp-surface);
+  border: 1px solid var(--fcp-line);
+  border-radius: var(--fcp-radius-card);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.08);
+  padding: 32px;
+}
+.brand {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  margin-bottom: 24px;
+}
+.mark {
+  width: 14px;
+  height: 14px;
+  background: var(--fcp-accent);
+  margin-top: 4px;
+  flex: none;
+}
+.title {
+  font-size: 16px;
+  font-weight: 700;
+}
+.sub {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fcp-gray-400);
+  margin-top: 2px;
+}
+.notice {
+  background: var(--fcp-warning-bg);
+  border-left: 3px solid var(--fcp-warning);
+  border-radius: 0 8px 8px 0;
+  padding: 11px 13px;
+  font-size: 12px;
+  color: var(--fcp-gray-700);
+  margin-bottom: 18px;
+}
+.notice code {
+  font-family: var(--fcp-font-num);
+  background: rgba(0, 0, 0, 0.05);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--fcp-gray-600);
+}
+.input {
+  font-family: var(--fcp-font-ui);
+  font-size: 13.5px;
+  color: var(--fcp-ink);
+  border: 1px solid var(--fcp-line);
+  border-radius: var(--fcp-radius-control);
+  padding: 10px 12px;
+  background: #fff;
+}
+.input:focus {
+  outline: none;
+  border-color: var(--fcp-accent);
+  box-shadow: 0 0 0 3px rgba(47, 211, 237, 0.18);
+}
+.error {
+  font-size: 12px;
+  color: var(--fcp-unfavorable);
+  background: var(--fcp-unfavorable-bg);
+  border-radius: 7px;
+  padding: 9px 11px;
+}
+.button {
+  margin-top: 4px;
+  border: none;
+  cursor: pointer;
+  background: var(--fcp-ink-strong);
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: var(--fcp-radius-control);
+  padding: 11px;
+}
+.button:disabled {
+  background: #c4c8ce;
+  cursor: not-allowed;
+}
