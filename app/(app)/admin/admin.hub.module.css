@@ -1,0 +1,44 @@
+.pageBody {
+  padding: 24px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: var(--fcp-surface);
+  border: 1px solid var(--fcp-line);
+  border-radius: var(--fcp-radius-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.card:hover {
+  border-color: var(--fcp-accent);
+}
+.cardDisabled {
+  opacity: 0.6;
+}
+.cardDisabled:hover {
+  border-color: var(--fcp-line);
+}
+.cardLabel {
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--fcp-ink);
+}
+.cardPhase {
+  font-size: 11px;
+  color: var(--fcp-gray-400);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.cardPhaseReady {
+  font-size: 11px;
+  color: var(--fcp-favorable);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}

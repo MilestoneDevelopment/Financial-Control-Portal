@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { PeriodProvider } from "@/components/providers/PeriodProvider";
 import { CurrencyProvider } from "@/components/providers/CurrencyProvider";
-import { AppInfoProvider } from "@/components/providers/AppInfoProvider";
+import { AppInfoProvider, type CompanyLite } from "@/components/providers/AppInfoProvider";
 import { Sidebar } from "./Sidebar";
 import styles from "./shell.module.css";
 
@@ -13,19 +13,21 @@ import styles from "./shell.module.css";
  */
 export function ShellFrame({
   email,
-  companyId,
+  companies,
+  defaultCompanyId,
   children,
 }: {
   email: string;
-  companyId: string;
+  companies: CompanyLite[];
+  defaultCompanyId: string | null;
   children: ReactNode;
 }) {
   return (
-    <AppInfoProvider value={{ email, companyId }}>
+    <AppInfoProvider value={{ email, companies, defaultCompanyId }}>
       <PeriodProvider>
         <CurrencyProvider>
           <div className={styles.frame}>
-            <Sidebar companyId={companyId} />
+            <Sidebar />
             <main className={styles.main}>{children}</main>
           </div>
         </CurrencyProvider>

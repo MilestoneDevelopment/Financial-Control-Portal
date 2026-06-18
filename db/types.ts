@@ -99,6 +99,70 @@ export type Database = {
         }
         Relationships: []
       }
+      cf_nodes: {
+        Row: {
+          cash_direction: Database["public"]["Enums"]["cash_direction"]
+          company_id: string
+          created_at: string
+          dept: string | null
+          id: string
+          is_active: boolean
+          kind: Database["public"]["Enums"]["cf_node_kind"]
+          label: string
+          parent_id: string | null
+          sort_order: number
+          structure_version_id: string
+        }
+        Insert: {
+          cash_direction?: Database["public"]["Enums"]["cash_direction"]
+          company_id: string
+          created_at?: string
+          dept?: string | null
+          id?: string
+          is_active?: boolean
+          kind: Database["public"]["Enums"]["cf_node_kind"]
+          label: string
+          parent_id?: string | null
+          sort_order?: number
+          structure_version_id: string
+        }
+        Update: {
+          cash_direction?: Database["public"]["Enums"]["cash_direction"]
+          company_id?: string
+          created_at?: string
+          dept?: string | null
+          id?: string
+          is_active?: boolean
+          kind?: Database["public"]["Enums"]["cf_node_kind"]
+          label?: string
+          parent_id?: string | null
+          sort_order?: number
+          structure_version_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cf_nodes_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cf_nodes_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "cf_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cf_nodes_structure_version_id_fkey"
+            columns: ["structure_version_id"]
+            isOneToOne: false
+            referencedRelation: "cf_structure_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cf_structure_versions: {
         Row: {
           company_id: string
@@ -622,6 +686,8 @@ export type Database = {
     }
     Enums: {
       audit_severity: "ok" | "warn"
+      cash_direction: "in" | "out" | "neutral"
+      cf_node_kind: "section" | "group" | "class"
       company_status: "draft" | "active" | "archived"
       currency: "GEL" | "USD" | "EUR"
       fx_rate_source: "imported" | "nbg" | "nbg_prior_filled" | "manual"
@@ -757,6 +823,8 @@ export const Constants = {
   public: {
     Enums: {
       audit_severity: ["ok", "warn"],
+      cash_direction: ["in", "out", "neutral"],
+      cf_node_kind: ["section", "group", "class"],
       company_status: ["draft", "active", "archived"],
       currency: ["GEL", "USD", "EUR"],
       fx_rate_source: ["imported", "nbg", "nbg_prior_filled", "manual"],

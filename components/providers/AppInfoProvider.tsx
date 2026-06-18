@@ -1,11 +1,20 @@
 "use client";
 
-/** Lightweight context for shell-wide info (current user email, active company). */
+/** Shell-wide context: current user, accessible companies, default company. */
 import { createContext, useContext, type ReactNode } from "react";
+
+export interface CompanyLite {
+  id: string;
+  name: string;
+  short_code: string | null;
+  base_currency: "GEL" | "USD" | "EUR";
+  status: "draft" | "active" | "archived";
+}
 
 interface AppInfo {
   email: string;
-  companyId: string;
+  companies: CompanyLite[];
+  defaultCompanyId: string | null;
 }
 
 const Ctx = createContext<AppInfo | null>(null);

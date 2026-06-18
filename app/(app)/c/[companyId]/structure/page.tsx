@@ -1,12 +1,69 @@
-import { ModulePlaceholder } from "@/components/shell/ModulePlaceholder";
+import { TopBar } from "@/components/shell/TopBar";
+import { createClient } from "@/lib/supabase/server";
+import { isSupabaseConfigured } from "@/lib/supabase/env";
+import { capabilityMap } from "@/lib/auth/guards";
+import {
+  getActiveVersion,
+  getNodes,
+  buildTree,
+  validateStructure,
+  countNodes,
+} from "@/lib/data/structure";
+import { StructureBuilder } from "./StructureBuilder";
+import { InitStructure } from "./InitStructure";
+import styles from "./structure.module.css";
 
-export default function StructurePage() {
+export const dynamic = "force-dynamic";
+
+export default async function StructurePage({
+  params,
+}: {
+  params: Promise<{ companyId: string }>;
+}) {
+  const { companyId } = await params;
+
+  let canEdit = false;
+  let hasVersion = false;
+  let versionId = "";
+  let tree: ReturnType<typeof buildTree> = [];
+  let issues: ReturnType<typeof validateStructure> = [];
+  let counts = { sections: 0, groups: 0, classes: 0, active: 0, inactive: 0 };
+
+  if (isSupabaseConfigured()) {
+    const supabase = await createClient();
+    canEdit = (await capabilityMap(supabase, companyId, ["structure.edit"]))["structure.edit"];
+    const version = await getActiveVersion(companyId);
+    if (version) {
+      hasVersion = true;
+      versionId = version.id;
+      const nodes = await getNodes(version.id);
+      tree = buildTree(nodes);
+      issues = validateStructure(tree);
+      counts = countNodes(tree);
+    }
+  }
+
   return (
-    <ModulePlaceholder
-      title="Cash Flow Structure"
-      subtitle="Manage sections, groups and classes (versioned)"
-      phase="Phase 1"
-      usesPeriod={false}
-    />
+    <>
+      <TopBar
+        title="Cash Flow Structure"
+        subtitle="Manage sections, groups and classes (versioned)"
+        usesPeriod={false}
+      />
+      <div className={styles.pageBody}>
+        {hasVersion ? (
+          <StructureBuilder
+            companyId={companyId}
+            versionId={versionId}
+            tree={tree}
+            issues={issues}
+            counts={counts}
+            canEdit={canEdit}
+          />
+        ) : (
+          <InitStructure companyId={companyId} canEdit={canEdit} />
+        )}
+      </div>
+    </>
   );
 }
