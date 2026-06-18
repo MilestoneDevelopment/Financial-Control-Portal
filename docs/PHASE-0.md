@@ -47,8 +47,8 @@ system roles, default permissions, security settings, and the Owner membership. 
 - Active company is a placeholder (`demo`); real company resolution from membership/URL is Phase 1.
 - Period Selector and Export menu render as static chips; interactive controls come with their modules.
 - ESLint is not yet wired into the build (`eslint.ignoreDuringBuilds`); added in a hardening pass.
-- `db/types.ts` is a placeholder; regenerate from the live schema after applying the migration.
-- The migration has not been applied to a live Supabase project (none provisioned in this environment).
+- ~~`db/types.ts` is a placeholder~~ — now generated from the live schema (migration 0001 applied to the `financial-control-portal` Supabase project; verified: 13 tables, 8 enums, RLS on all 13, 8 helper functions, 25 policies, 13 indexes, `on_auth_user_created` trigger, `seed_org_defaults`, capabilities seeded, **zero** demo data).
+- **Security follow-up (pending approval) — migration 0002:** the Supabase advisor flags that `SECURITY DEFINER` helpers are exposed via PostgREST RPC. Most are benign (the `auth_*` helpers act only on `auth.uid()` inside RLS), but `seed_org_defaults` is `EXECUTE`-able by `anon`/`authenticated` and must be locked down (revoke EXECUTE; relocate the RLS helpers to a non-exposed schema) before real users/Phase 1. `rls_auto_enable()` in the advisor list is a pre-existing project event-trigger guardrail, not from this migration.
 
 ## Next: Phase 1 (recommended)
 
