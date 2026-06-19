@@ -74,13 +74,13 @@ export default async function ClassificationPage({
       .eq("is_active", true);
     activeRules = count ?? 0;
 
+    // Server filters: file / status / currency / date (search is client-side live).
     const dbFilters: TxFilters = {
       fileId: filters.fileId || undefined,
       status: (filters.status || undefined) as TxFilters["status"],
       currency: (filters.currency || undefined) as TxFilters["currency"],
       dateFrom: filters.dateFrom || undefined,
       dateTo: filters.dateTo || undefined,
-      search: filters.search || undefined,
     };
     rows = (await listTransactionsForReview(companyId, dbFilters)).map((t) => ({
       id: t.id,

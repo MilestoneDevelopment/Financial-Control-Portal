@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { formatAmount } from "@/lib/format/money";
+import { buildFilterParams, EMPTY_FILTERS, matchesSearch } from "@/lib/domain/classification/filters";
 import type { Database } from "@/db/types";
 import {
   assignClassAction,
@@ -92,11 +93,14 @@ export function ClassificationClient({
 
   function applyFilters(e: React.FormEvent) {
     e.preventDefault();
-    const p = new URLSearchParams();
-    Object.entries(f).forEach(([k, v]) => {
-      if (v) p.set(k, v);
-    });
+    // Search is client-side (live); only the server filters go into the URL.
+    const p = new URLSearchParams(buildFilterParams({ ...f, search: "" }));
     router.push(`/c/${companyId}/classification${p.toString() ? `?${p}` : ""}`);
+  }
+
+  function clearFilters() {
+    setF(EMPTY_FILTERS);
+    router.push(`/c/${companyId}/classification`);
   }
 
   function toggle(id: string) {
@@ -106,8 +110,13 @@ export function ClassificationClient({
       return next;
     });
   }
+  // Client-side live search over the server-filtered rows (description / Dr / Cr).
+  const visibleRows = rows.filter((r) => matchesSearch([r.description, r.debit, r.credit], f.search));
+
   function toggleAll() {
-    setSelected((prev) => (prev.size === rows.length ? new Set() : new Set(rows.map((r) => r.id))));
+    setSelected((prev) =>
+      prev.size === visibleRows.length ? new Set() : new Set(visibleRows.map((r) => r.id)),
+    );
   }
 
   const noClasses = classes.length === 0;
@@ -141,8 +150,15 @@ export function ClassificationClient({
         </select>
         <input className={styles.input} type="date" value={f.dateFrom} onChange={(e) => setF({ ...f, dateFrom: e.target.value })} />
         <input className={styles.input} type="date" value={f.dateTo} onChange={(e) => setF({ ...f, dateTo: e.target.value })} />
-        <input className={styles.input} placeholder="Search description / account" value={f.search} onChange={(e) => setF({ ...f, search: e.target.value })} />
+        <input
+          className={styles.input}
+          placeholder="Live search description / account"
+          value={f.search}
+          onChange={(e) => setF({ ...f, search: e.target.value })}
+          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+        />
         <button className={styles.btnSm} type="submit" disabled={pending}>Apply</button>
+        <button type="button" className={styles.linkBtn} disabled={pending} onClick={clearFilters}>Clear filters</button>
       </form>
 
       {canRun && (
@@ -205,14 +221,14 @@ export function ClassificationClient({
       )}
 
       <div className={styles.tableCard}>
-        {rows.length === 0 ? (
+        {visibleRows.length === 0 ? (
           <div className={styles.empty}>No transactions match the current filters.</div>
         ) : (
           <table className={styles.table}>
             <thead>
               <tr>
                 {canAssign && (
-                  <th><input type="checkbox" checked={selected.size === rows.length && rows.length > 0} onChange={toggleAll} /></th>
+                  <th><input type="checkbox" checked={selected.size === visibleRows.length && visibleRows.length > 0} onChange={toggleAll} /></th>
                 )}
                 <th>Date</th>
                 <th>Description</th>
@@ -226,7 +242,7 @@ export function ClassificationClient({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {visibleRows.map((r) => (
                 <tr key={r.id} data-status={r.status}>
                   {canAssign && (
                     <td><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} /></td>

@@ -7,25 +7,23 @@ import "server-only";
 import type { Database } from "@/db/types";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveVersion, getNodes } from "@/lib/data/structure";
+import { activeClassOptions, type ClassOption } from "@/lib/domain/classification/classes";
 
 export type TransactionRow = Database["public"]["Tables"]["transactions"]["Row"];
 export type ClassificationRule = Database["public"]["Tables"]["classification_rules"]["Row"];
 export type CashDirection = Database["public"]["Enums"]["cash_direction"];
+export type { ClassOption };
 
-export interface ClassOption {
-  id: string;
-  label: string;
-  cashDirection: CashDirection;
-}
-
-/** Active class nodes of the company's active structure version. */
+/**
+ * Active class nodes of the company's active structure version - the single
+ * source for every class selector (review rows, bulk assign, save-rule, rule
+ * form, preview). Company/version scoping is enforced here; any class added in
+ * the Structure Builder appears automatically on the next request (force-dynamic).
+ */
 export async function listActiveClasses(companyId: string): Promise<ClassOption[]> {
   const version = await getActiveVersion(companyId);
   if (!version) return [];
-  const nodes = await getNodes(version.id);
-  return nodes
-    .filter((n) => n.kind === "class" && n.is_active)
-    .map((n) => ({ id: n.id, label: n.label, cashDirection: n.cash_direction }));
+  return activeClassOptions(await getNodes(version.id));
 }
 
 export interface TxFilters {
