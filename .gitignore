@@ -35,3 +35,6 @@ Thumbs.db
 
 # handoff bundle is reference material, not app source
 /_handoff/
+
+# local scratch / test fixtures - never committed
+/tmp/
