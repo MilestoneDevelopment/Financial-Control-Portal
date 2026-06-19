@@ -1076,6 +1076,14 @@ export type Database = {
         Args: { p_org: string; p_owner: string }
         Returns: undefined
       }
+      set_period_opening_balance: {
+        Args: {
+          p_period_id: string
+          p_amount: number
+          p_source: Database["public"]["Enums"]["opening_balance_source"]
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       audit_severity: "ok" | "warn"

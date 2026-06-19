@@ -24,6 +24,7 @@ import {
   type PeriodStatus,
 } from "@/lib/domain/cashflow/periods";
 import { CashFlowFilters } from "./CashFlowFilters";
+import { CreatePeriodForm, OpeningBalanceForm } from "./PeriodControls";
 import styles from "./cash-flow.module.css";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,8 @@ export default async function CashFlowPage({
   const periodIdParam = one(sp.periodId);
 
   let canReview = false;
+  let canManagePeriods = false;
+  let canSetOpening = false;
   let hasStructure = false;
   let periods: { id: string; label: string }[] = [];
   let sections: ReturnType<typeof buildCashFlowTree>["sections"] = [];
@@ -63,7 +66,14 @@ export default async function CashFlowPage({
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    canReview = (await capabilityMap(supabase, companyId, ["classification.review"]))["classification.review"];
+    const caps = await capabilityMap(supabase, companyId, [
+      "classification.review",
+      "period.approve_lock",
+      "period.set_opening_balance",
+    ]);
+    canReview = caps["classification.review"];
+    canManagePeriods = caps["period.approve_lock"];
+    canSetOpening = caps["period.set_opening_balance"];
 
     const allPeriods = await listCashFlowPeriods(companyId);
     periods = allPeriods.map((p) => ({ id: p.id, label: p.label }));
@@ -148,6 +158,8 @@ export default async function CashFlowPage({
           periods={periods}
           current={{ from: fromParam, to: toParam, periodId: periodIdParam }}
         />
+
+        {canManagePeriods && <CreatePeriodForm companyId={companyId} />}
 
         <div className={styles.scopeRow}>
           <span className={styles.rangeHint}>
@@ -273,11 +285,19 @@ export default async function CashFlowPage({
                     {opening.state === "carried-candidate" && opening.candidate !== null && (
                       <div className={styles.carriedNote}>
                         Carried opening available from the previous period:{" "}
-                        <strong>{fmt(opening.candidate)}</strong>. Applying it is a controlled action
-                        (deferred to Phase 4C).
+                        <strong>{fmt(opening.candidate)}</strong>.
                       </div>
                     )}
                   </div>
+                )}
+
+                {inPeriodMode && canSetOpening && periodIdParam && (
+                  <OpeningBalanceForm
+                    companyId={companyId}
+                    periodId={periodIdParam}
+                    hasValue={opening.value !== null}
+                    candidate={opening.state === "carried-candidate" ? opening.candidate : null}
+                  />
                 )}
 
                 <div className={styles.totalLine}>

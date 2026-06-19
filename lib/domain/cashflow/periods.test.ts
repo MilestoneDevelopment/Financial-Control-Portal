@@ -7,6 +7,8 @@ import {
   comparePeriods,
   isLockedOrClosed,
   resolveOpeningBalance,
+  validatePeriodInput,
+  validateOpeningBalanceAmount,
   type PeriodLike,
 } from "./periods.ts";
 import { buildCashFlowTree, computeClosingBalance } from "./generate.ts";
@@ -132,6 +134,23 @@ test("comparePeriods + isLockedOrClosed", () => {
   assert.equal(isLockedOrClosed("closed"), true);
   assert.equal(isLockedOrClosed("active"), false);
   assert.equal(isLockedOrClosed("draft"), false);
+});
+
+test("validatePeriodInput: accepts valid month/year; rejects out-of-range", () => {
+  assert.deepEqual(validatePeriodInput({ year: 2026, month: 6 }), { year: 2026, month: 6 });
+  assert.deepEqual(validatePeriodInput({ year: 2026, month: null }), { year: 2026, month: null });
+  assert.throws(() => validatePeriodInput({ year: 1999, month: 1 }), /Year must be/);
+  assert.throws(() => validatePeriodInput({ year: 2026, month: 0 }), /Month must be/);
+  assert.throws(() => validatePeriodInput({ year: 2026, month: 13 }), /Month must be/);
+  assert.throws(() => validatePeriodInput({ year: 2026.5, month: 1 }), /Year must be/);
+});
+
+test("validateOpeningBalanceAmount: rounds to 2 dp; rejects non-finite", () => {
+  assert.equal(validateOpeningBalanceAmount(1250.5), 1250.5);
+  assert.equal(validateOpeningBalanceAmount(1250.005), 1250.01);
+  assert.equal(validateOpeningBalanceAmount(-200), -200);
+  assert.throws(() => validateOpeningBalanceAmount(Number.NaN), /valid number/);
+  assert.throws(() => validateOpeningBalanceAmount(Infinity), /valid number/);
 });
 
 test("carried chain: prev closing (prevOpening + prevNet) feeds current candidate", () => {

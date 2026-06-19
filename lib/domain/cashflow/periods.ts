@@ -141,3 +141,32 @@ export const OPENING_STATE_LABEL: Record<OpeningState, string> = {
   "carried-candidate": "carried (available)",
   missing: "not set",
 };
+
+/**
+ * Validate + normalize a new period's year/month (Phase 4C period setup).
+ * month is 1-12 for a single month, or null for a full-year period.
+ */
+export function validatePeriodInput(raw: {
+  year: number;
+  month: number | null;
+}): { year: number; month: number | null } {
+  if (!Number.isInteger(raw.year) || raw.year < 2000 || raw.year > 2100) {
+    throw new Error("Year must be a whole number between 2000 and 2100.");
+  }
+  if (
+    raw.month !== null &&
+    (!Number.isInteger(raw.month) || raw.month < 1 || raw.month > 12)
+  ) {
+    throw new Error("Month must be 1-12, or empty for a full-year period.");
+  }
+  return { year: raw.year, month: raw.month };
+}
+
+/** Validate + normalize an opening-balance amount (Phase 4C). */
+export function validateOpeningBalanceAmount(raw: number): number {
+  if (typeof raw !== "number" || !Number.isFinite(raw)) {
+    throw new Error("Opening balance must be a valid number.");
+  }
+  // Store to 2 decimals (matches the periods numeric(18,2) column).
+  return Math.round(raw * 100) / 100;
+}
