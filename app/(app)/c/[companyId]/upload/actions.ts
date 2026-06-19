@@ -20,6 +20,7 @@ import { validateUploadFile, hasBlockingIssue } from "@/lib/domain/upload/parse"
 import { buildImport } from "@/lib/domain/upload/import";
 import { readXlsxGrid } from "@/lib/server/xlsx";
 import { resolveRowFx, fxSourceForDate, type FxLookup } from "@/lib/domain/upload/fx-resolve";
+import { missingFxIssuesToClear, shouldRevertSupersede } from "@/lib/domain/upload/issue-cleanup";
 import { fetchNbgRate } from "@/lib/server/nbg";
 import type { Database } from "@/db/types";
 
@@ -316,7 +317,7 @@ export async function resolveFxForFileAction(fileId: string): Promise<void> {
 
   const { data: pending, error } = await supabase
     .from("transactions")
-    .select("id, transaction_date, original_amount, original_currency")
+    .select("id, row_index, transaction_date, original_amount, original_currency")
     .eq("file_id", fileId)
     .eq("fx_status", "pending");
   if (error) throw new Error(error.message);
@@ -327,6 +328,7 @@ export async function resolveFxForFileAction(fileId: string): Promise<void> {
 
   let resolved = 0;
   let stillPending = 0;
+  const resolvedRowIndexes: number[] = [];
   for (const r of rows) {
     const currency = r.original_currency as Currency;
     const date = r.transaction_date;
@@ -393,6 +395,7 @@ export async function resolveFxForFileAction(fileId: string): Promise<void> {
         })
         .eq("id", r.id);
       resolved += 1;
+      if (r.row_index !== null) resolvedRowIndexes.push(r.row_index);
     } else {
       stillPending += 1;
       await supabase.from("accounting_file_issues").insert({
@@ -406,12 +409,34 @@ export async function resolveFxForFileAction(fileId: string): Promise<void> {
     }
   }
 
+  // Mark resolved the parse-time MISSING_FX issues whose rows are now resolved
+  // (history is preserved via resolved_at/by/note, not deleted). BAD_CURRENCY stays active.
+  let issuesCleared = 0;
+  const { data: openIssues } = await supabase
+    .from("accounting_file_issues")
+    .select("id, code, row_index, resolved_at")
+    .eq("file_id", fileId)
+    .is("resolved_at", null);
+  const toClear = missingFxIssuesToClear(openIssues ?? [], resolvedRowIndexes, stillPending === 0);
+  if (toClear.length) {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { error: clrErr } = await supabase
+      .from("accounting_file_issues")
+      .update({
+        resolved_at: new Date().toISOString(),
+        resolved_by: user?.id ?? null,
+        resolution_note: "Cleared by FX resolution.",
+      })
+      .in("id", toClear);
+    if (!clrErr) issuesCleared = toClear.length;
+  }
+
   await logAudit(supabase, {
     orgId: company.org_id,
     companyId,
     action: "accounting.fx.resolved",
     target: file.original_filename,
-    details: { fileId, resolved, stillPending },
+    details: { fileId, resolved, stillPending, issuesCleared },
     severity: stillPending > 0 ? "warn" : "ok",
   });
   revalidatePath(`/c/${companyId}/upload`);
@@ -437,12 +462,29 @@ export async function removeAccountingFileAction(fileId: string): Promise<void> 
   if (delErr) throw new Error(delErr.message);
   const { error: rmErr } = await supabase.storage.from("accounting-files").remove([file.storage_path]);
 
+  // If this file superseded another and no other replacement remains, clear the
+  // old file's is_superseded flag (its data + object are preserved).
+  let supersedeReverted = false;
+  if (file.supersedes_file_id) {
+    const { count } = await supabase
+      .from("accounting_files")
+      .select("id", { count: "exact", head: true })
+      .eq("supersedes_file_id", file.supersedes_file_id);
+    if (shouldRevertSupersede(count ?? 0)) {
+      const { error: revErr } = await supabase
+        .from("accounting_files")
+        .update({ is_superseded: false, updated_at: new Date().toISOString() })
+        .eq("id", file.supersedes_file_id);
+      if (!revErr) supersedeReverted = true;
+    }
+  }
+
   await logAudit(supabase, {
     orgId: company.org_id,
     companyId,
     action: "accounting.file.removed",
     target: file.original_filename,
-    details: { fileId, storageRemoved: !rmErr },
+    details: { fileId, storageRemoved: !rmErr, supersedeReverted },
     severity: "warn",
   });
   revalidatePath(`/c/${companyId}/upload`);

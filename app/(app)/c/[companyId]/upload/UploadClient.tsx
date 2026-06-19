@@ -30,6 +30,7 @@ export interface IssueRow {
   severity: IssueSeverity;
   code: string;
   message: string;
+  resolvedAt: string | null;
 }
 
 export interface FileRow {
@@ -206,6 +207,8 @@ export function UploadClient({
             <tbody>
               {files.map((f) => {
                 const issues = issuesByFile[f.id] ?? [];
+                const activeIssues = issues.filter((i) => !i.resolvedAt);
+                const resolvedIssues = issues.filter((i) => i.resolvedAt);
                 const parseable = f.importStatus === "uploaded" || f.importStatus === "failed";
                 const canResolveFx = f.importStatus === "imported" && f.fxPending > 0;
                 const detected =
@@ -236,7 +239,9 @@ export function UploadClient({
                             className={styles.linkBtn}
                             onClick={() => setOpenIssues(openIssues === f.id ? null : f.id)}
                           >
-                            {issues.length} {openIssues === f.id ? "▲" : "▼"}
+                            {activeIssues.length}
+                            {resolvedIssues.length > 0 ? ` (+${resolvedIssues.length})` : ""}{" "}
+                            {openIssues === f.id ? "▲" : "▼"}
                           </button>
                         ) : (
                           "—"
@@ -285,11 +290,19 @@ export function UploadClient({
                     {openIssues === f.id && issues.length > 0 && (
                       <tr>
                         <td colSpan={9} className={styles.issuesCell}>
-                          {issues.map((iss, idx) => (
-                            <div key={idx} className={styles.issueLine} data-sev={iss.severity}>
+                          {activeIssues.map((iss, idx) => (
+                            <div key={`a${idx}`} className={styles.issueLine} data-sev={iss.severity}>
                               <span className={styles.issueCode}>{iss.code}</span>
                               {iss.rowIndex != null && <span className={styles.issueRow}>row {iss.rowIndex}</span>}
                               <span>{iss.message}</span>
+                            </div>
+                          ))}
+                          {resolvedIssues.map((iss, idx) => (
+                            <div key={`r${idx}`} className={styles.issueLineResolved}>
+                              <span className={styles.issueCode}>{iss.code}</span>
+                              {iss.rowIndex != null && <span className={styles.issueRow}>row {iss.rowIndex}</span>}
+                              <span>{iss.message}</span>
+                              <span className={styles.resolvedTag}>resolved</span>
                             </div>
                           ))}
                         </td>

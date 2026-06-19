@@ -59,6 +59,7 @@ export default async function UploadPage({
         severity: iss.severity,
         code: iss.code,
         message: iss.message,
+        resolvedAt: iss.resolved_at,
       });
     }
   }

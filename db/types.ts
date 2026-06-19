@@ -29,6 +29,9 @@ export type Database = {
           file_id: string
           id: string
           message: string
+          resolution_note: string | null
+          resolved_at: string | null
+          resolved_by: string | null
           row_index: number | null
           severity: Database["public"]["Enums"]["upload_issue_severity"]
         }
@@ -40,6 +43,9 @@ export type Database = {
           file_id: string
           id?: string
           message: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           row_index?: number | null
           severity?: Database["public"]["Enums"]["upload_issue_severity"]
         }
@@ -51,6 +57,9 @@ export type Database = {
           file_id?: string
           id?: string
           message?: string
+          resolution_note?: string | null
+          resolved_at?: string | null
+          resolved_by?: string | null
           row_index?: number | null
           severity?: Database["public"]["Enums"]["upload_issue_severity"]
         }

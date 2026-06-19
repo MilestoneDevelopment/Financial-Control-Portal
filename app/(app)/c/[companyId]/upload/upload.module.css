@@ -187,6 +187,24 @@
   font-size: 10.5px;
   color: var(--fcp-gray-400);
 }
+.issueLineResolved {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 3px 0;
+  color: var(--fcp-gray-400);
+  opacity: 0.7;
+  text-decoration: line-through;
+}
+.resolvedTag {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 700;
+  color: var(--fcp-favorable, #2c7a4b);
+  text-decoration: none;
+}
 
 .actions {
   display: flex;
