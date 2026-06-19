@@ -34,6 +34,14 @@ reports, or cash-flow engine.
 
 - `0003_cf_nodes.sql` — applied to `financial-control-portal` (`vcaobnrunyfazrxusluh`). Verified: table +
   RLS + 2 policies + 4 indexes + 2 enums; 0 rows (no demo data). `db/types.ts` regenerated.
+- `0004_provision_org.sql` — `provision_org(text, uuid)` SECURITY DEFINER (owner `postgres`,
+  `search_path=public`), EXECUTE granted only to `service_role`. Creates an org and calls
+  `seed_org_defaults` in one trusted call so `service_role` needs no direct table DML.
+- `0005_api_grants.sql` — restores base-table privileges for the `authenticated` role (the hardened
+  template had stripped them, so RLS-protected reads/writes failed with "permission denied for table").
+  SELECT on all 14 tables; INSERT/UPDATE on `companies`/`periods`/`cf_nodes`; INSERT on
+  `cf_structure_versions` and (append-only) `audit_log`; own-row INSERT/UPDATE on `profiles`. No grants
+  to `anon`; no direct DML to `service_role`; RLS remains the row-level gate.
 
 ## Validation
 
