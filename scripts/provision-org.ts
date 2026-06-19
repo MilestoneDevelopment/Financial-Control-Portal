@@ -1,10 +1,11 @@
 /**
  * Service-role org provisioning (ops tooling - NOT exposed to the app/client).
  *
- * Creates an organization, then calls seed_org_defaults() to install the system
+ * Calls provision_org() which creates the organization and seeds the system
  * roles, default permissions, security settings, and the Owner membership for an
- * existing user. seed_org_defaults EXECUTE is granted only to service_role
- * (migration 0002), so this must run with the service-role key.
+ * existing user. provision_org is SECURITY DEFINER with EXECUTE granted only to
+ * service_role (migration 0004); service_role has no direct table DML, so this
+ * must run with the service-role key.
  *
  * Prerequisites: the owner must have already signed up (a profiles row exists,
  * created by the on_auth_user_created trigger).
@@ -49,20 +50,16 @@ async function main() {
     throw new Error(`No signed-up user found for ${ownerEmail}. Have them sign up first.`);
   }
 
-  const { data: org, error: orgErr } = await admin
-    .from("organizations")
-    .insert({ name: orgName })
-    .select("id")
-    .single();
-  if (orgErr) throw new Error(orgErr.message);
-
-  const { error: seedErr } = await admin.rpc("seed_org_defaults", {
-    p_org: org.id,
+  // Create org + seed roles/permissions/security/Owner membership in one trusted
+  // call. provision_org is SECURITY DEFINER (migration 0004); service_role holds
+  // no direct table DML, so all writes go through this function.
+  const { data: orgId, error: provErr } = await admin.rpc("provision_org", {
+    p_name: orgName,
     p_owner: ownerId,
   });
-  if (seedErr) throw new Error(seedErr.message);
+  if (provErr) throw new Error(provErr.message);
 
-  console.log(`Provisioned org "${orgName}" (${org.id}); owner = ${ownerEmail} (${ownerId}).`);
+  console.log(`Provisioned org "${orgName}" (${orgId}); owner = ${ownerEmail} (${ownerId}).`);
   console.log("System roles, default permissions, security settings and Owner membership created.");
 }
 

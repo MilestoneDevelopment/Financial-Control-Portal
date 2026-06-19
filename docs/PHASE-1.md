@@ -25,8 +25,10 @@ reports, or cash-flow engine.
 - **Capability guards** (`lib/auth/guards.ts`): `requireCapability` / `requireCapabilityOrg` / `capabilityMap`
   delegate to the DB `auth_can` / `auth_can_org` (single source of truth, honors role_permissions overrides).
 - **Audit helper** (`lib/audit.ts`): append-only logging on every privileged mutation.
-- **Service-role provisioning** (`scripts/provision-org.ts`): creates an org + calls `seed_org_defaults`
-  for an existing owner. Uses the service-role key, never imported by app/client code. Not run automatically.
+- **Service-role provisioning** (`scripts/provision-org.ts`): calls the `provision_org` SECURITY DEFINER
+  function (migration 0004), which creates an org and seeds defaults via `seed_org_defaults` for an existing
+  owner. `service_role` has no direct table DML; provisioning goes through SECURITY DEFINER functions only.
+  Uses the service-role key, never imported by app/client code. Not run automatically.
 
 ## Migrations
 
