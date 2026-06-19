@@ -148,17 +148,17 @@ export function ClassificationClient({
           <option value="USD">USD</option>
           <option value="EUR">EUR</option>
         </select>
-        <input className={styles.input} type="date" value={f.dateFrom} onChange={(e) => setF({ ...f, dateFrom: e.target.value })} />
-        <input className={styles.input} type="date" value={f.dateTo} onChange={(e) => setF({ ...f, dateTo: e.target.value })} />
+        <input className={`${styles.input} ${styles.dateInput}`} type="date" value={f.dateFrom} onChange={(e) => setF({ ...f, dateFrom: e.target.value })} />
+        <input className={`${styles.input} ${styles.dateInput}`} type="date" value={f.dateTo} onChange={(e) => setF({ ...f, dateTo: e.target.value })} />
         <input
           className={styles.input}
-          placeholder="Live search description / account"
+          placeholder="Live search"
           value={f.search}
           onChange={(e) => setF({ ...f, search: e.target.value })}
           onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
         />
         <button className={styles.btnSm} type="submit" disabled={pending}>Apply</button>
-        <button type="button" className={styles.linkBtn} disabled={pending} onClick={clearFilters}>Clear filters</button>
+        <button type="button" className={styles.clearBtn} disabled={pending} onClick={clearFilters}>Clear filters</button>
       </form>
 
       {canRun && (
@@ -260,7 +260,7 @@ export function ClassificationClient({
                   <td>
                     {canAssign ? (
                       <select
-                        className={styles.select}
+                        className={`${styles.select} ${styles.classSelect}`}
                         value={r.classId ?? ""}
                         disabled={pending || noClasses}
                         onChange={(e) => {

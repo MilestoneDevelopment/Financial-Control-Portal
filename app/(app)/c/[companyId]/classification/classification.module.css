@@ -12,6 +12,34 @@
   flex-wrap: wrap;
   gap: 8px;
   align-items: center;
+  margin: 18px 0 6px;
+}
+.dateInput {
+  border-radius: 7px;
+  padding: 6px 10px;
+  color: var(--fcp-gray-700);
+  background: #fff;
+}
+.dateInput::-webkit-calendar-picker-indicator {
+  opacity: 0.55;
+  cursor: pointer;
+}
+.clearBtn {
+  border: none;
+  cursor: pointer;
+  background: var(--fcp-ink-strong, #1f2937);
+  color: var(--fcp-accent, #2f6fed);
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 6px 11px;
+}
+.clearBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.classSelect {
+  min-width: 160px;
 }
 .select,
 .input {

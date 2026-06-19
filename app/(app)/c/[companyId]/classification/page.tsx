@@ -133,7 +133,7 @@ export default async function ClassificationPage({
               <div className={styles.unmatched}>
                 <span className={styles.unmatchedTitle}>Top unmatched pairs:</span>
                 {topUnmatched.map((u) => (
-                  <span key={u.pair} className={styles.unmatchedItem}>{u.pair} ({u.count})</span>
+                  <span key={u.pair} className={styles.unmatchedItem}>{u.pair} [ {u.count} ]</span>
                 ))}
               </div>
             )}
