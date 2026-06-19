@@ -52,3 +52,29 @@ export async function listCompanyIssues(companyId: string): Promise<AccountingFi
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export interface FxSummary {
+  total: number;
+  pending: number;
+  resolved: number;
+  notRequired: number;
+}
+
+/** Per-file FX status counts for a company (drives the Resolve FX UI). */
+export async function fxSummaryByFile(companyId: string): Promise<Record<string, FxSummary>> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("file_id, fx_status")
+    .eq("company_id", companyId);
+  if (error) throw new Error(error.message);
+  const out: Record<string, FxSummary> = {};
+  for (const row of data ?? []) {
+    const s = (out[row.file_id] ??= { total: 0, pending: 0, resolved: 0, notRequired: 0 });
+    s.total += 1;
+    if (row.fx_status === "pending") s.pending += 1;
+    else if (row.fx_status === "resolved") s.resolved += 1;
+    else if (row.fx_status === "not_required") s.notRequired += 1;
+  }
+  return out;
+}

@@ -9,7 +9,13 @@ import {
   type IssueSeverity,
 } from "@/lib/domain/upload/status";
 import type { PeriodStatus } from "@/lib/domain/period/lifecycle";
-import { uploadAccountingFileAction, parseAccountingFileAction } from "./actions";
+import {
+  uploadAccountingFileAction,
+  parseAccountingFileAction,
+  resolveFxForFileAction,
+  removeAccountingFileAction,
+  replaceAccountingFileAction,
+} from "./actions";
 import styles from "./upload.module.css";
 
 export interface PeriodOption {
@@ -34,9 +40,12 @@ export interface FileRow {
   validationStatus: ValidationStatus;
   rowCount: number | null;
   isCorrection: boolean;
+  isSuperseded: boolean;
   detectedStart: string | null;
   detectedEnd: string | null;
   createdAt: string;
+  fxPending: number;
+  fxResolved: number;
 }
 
 function formatBytes(n: number | null): string {
@@ -54,12 +63,16 @@ function formatWhen(iso: string): string {
 export function UploadClient({
   companyId,
   canUpload,
+  canRemove,
+  canReplace,
   periods,
   files,
   issuesByFile,
 }: {
   companyId: string;
   canUpload: boolean;
+  canRemove: boolean;
+  canReplace: boolean;
   periods: PeriodOption[];
   files: FileRow[];
   issuesByFile: Record<string, IssueRow[]>;
@@ -70,13 +83,27 @@ export function UploadClient({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const [parsingId, setParsingId] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [openIssues, setOpenIssues] = useState<string | null>(null);
 
-  function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  function run(label: string, fileId: string | null, fn: () => Promise<void>, okMsg: string) {
     setError(null);
     setNotice(null);
+    setBusyId(fileId);
+    startTransition(async () => {
+      try {
+        await fn();
+        setNotice(okMsg);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : `${label} failed.`);
+      } finally {
+        setBusyId(null);
+      }
+    });
+  }
+
+  function onUpload(e: React.FormEvent) {
+    e.preventDefault();
     const input = fileRef.current;
     const file = input?.files?.[0];
     if (!file) {
@@ -87,33 +114,22 @@ export function UploadClient({
     fd.set("companyId", companyId);
     if (periodId) fd.set("periodId", periodId);
     fd.set("file", file);
-
-    startTransition(async () => {
-      try {
-        await uploadAccountingFileAction(fd);
-        setNotice(`Uploaded “${file.name}”. Use Parse to import its rows.`);
-        setFileName("");
-        if (input) input.value = "";
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Upload failed.");
-      }
-    });
+    run("Upload", null, () => uploadAccountingFileAction(fd), `Uploaded “${file.name}”. Use Parse to import.`);
+    setFileName("");
+    if (input) input.value = "";
   }
 
-  function onParse(fileId: string) {
-    setError(null);
-    setNotice(null);
-    setParsingId(fileId);
-    startTransition(async () => {
-      try {
-        await parseAccountingFileAction(fileId);
-        setNotice("Parse complete. Status and row count updated below.");
-      } catch (err) {
-        setError(err instanceof Error ? err.message : "Parse failed.");
-      } finally {
-        setParsingId(null);
-      }
-    });
+  function onReplace(oldFileId: string, file: File) {
+    const fd = new FormData();
+    fd.set("companyId", companyId);
+    fd.set("oldFileId", oldFileId);
+    fd.set("file", file);
+    run("Replace", oldFileId, () => replaceAccountingFileAction(fd), `Replaced with “${file.name}”. Parse the new file to import.`);
+  }
+
+  function onRemove(fileId: string, name: string) {
+    if (!window.confirm(`Remove “${name}” and all its imported rows? This cannot be undone.`)) return;
+    run("Remove", fileId, () => removeAccountingFileAction(fileId), "File removed.");
   }
 
   return (
@@ -125,7 +141,7 @@ export function UploadClient({
       )}
 
       {canUpload && (
-        <form className={styles.card} onSubmit={onSubmit}>
+        <form className={styles.card} onSubmit={onUpload}>
           <div className={styles.cardTitle}>Upload accounting export</div>
 
           <label className={styles.field}>
@@ -159,14 +175,14 @@ export function UploadClient({
           </label>
 
           {fileName && <div className={styles.hint}>Selected: {fileName}</div>}
-          {error && <div className={styles.error}>{error}</div>}
-          {notice && <div className={styles.notice}>{notice}</div>}
-
           <button className={styles.btn} type="submit" disabled={pending}>
-            {pending && !parsingId ? "Uploading…" : "Upload file"}
+            {pending && busyId === null ? "Uploading…" : "Upload file"}
           </button>
         </form>
       )}
+
+      {error && <div className={styles.error}>{error}</div>}
+      {notice && <div className={styles.notice}>{notice}</div>}
 
       <div className={styles.tableCard}>
         <div className={styles.cardTitle}>Uploaded files</div>
@@ -181,29 +197,37 @@ export function UploadClient({
                 <th>Import</th>
                 <th>Validation</th>
                 <th>Rows</th>
+                <th>FX</th>
                 <th>Detected period</th>
                 <th>Issues</th>
-                <th>Uploaded</th>
-                <th></th>
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {files.map((f) => {
                 const issues = issuesByFile[f.id] ?? [];
                 const parseable = f.importStatus === "uploaded" || f.importStatus === "failed";
+                const canResolveFx = f.importStatus === "imported" && f.fxPending > 0;
                 const detected =
                   f.detectedStart && f.detectedEnd ? `${f.detectedStart} → ${f.detectedEnd}` : "—";
+                const rowBusy = busyId === f.id;
+                const fxLabel =
+                  f.fxPending + f.fxResolved === 0
+                    ? "—"
+                    : `${f.fxResolved} ok${f.fxPending > 0 ? ` · ${f.fxPending} pending` : ""}`;
                 return (
                   <Fragment key={f.id}>
                     <tr>
                       <td>
                         {f.filename}
                         {f.isCorrection && <span className={styles.badge}>correction</span>}
+                        {f.isSuperseded && <span className={styles.badgeMuted}>superseded</span>}
                       </td>
                       <td>{formatBytes(f.size)}</td>
                       <td>{IMPORT_STATUS_LABEL[f.importStatus]}</td>
                       <td>{VALIDATION_STATUS_LABEL[f.validationStatus]}</td>
                       <td>{f.rowCount ?? "—"}</td>
+                      <td>{fxLabel}</td>
                       <td>{detected}</td>
                       <td>
                         {issues.length > 0 ? (
@@ -218,18 +242,44 @@ export function UploadClient({
                           "—"
                         )}
                       </td>
-                      <td>{formatWhen(f.createdAt)}</td>
                       <td>
-                        {canUpload && parseable && (
-                          <button
-                            type="button"
-                            className={styles.btnSm}
-                            disabled={pending}
-                            onClick={() => onParse(f.id)}
-                          >
-                            {parsingId === f.id ? "Parsing…" : f.importStatus === "failed" ? "Retry" : "Parse"}
-                          </button>
-                        )}
+                        <div className={styles.actions}>
+                          {canUpload && parseable && (
+                            <button type="button" className={styles.btnSm} disabled={pending} onClick={() =>
+                              run("Parse", f.id, () => parseAccountingFileAction(f.id), "Parse complete.")
+                            }>
+                              {rowBusy ? "…" : f.importStatus === "failed" ? "Retry" : "Parse"}
+                            </button>
+                          )}
+                          {canUpload && canResolveFx && (
+                            <button type="button" className={styles.btnSm} disabled={pending} onClick={() =>
+                              run("Resolve FX", f.id, () => resolveFxForFileAction(f.id), "FX resolution complete.")
+                            }>
+                              {rowBusy ? "…" : "Resolve FX"}
+                            </button>
+                          )}
+                          {canReplace && (
+                            <label className={styles.btnSmGhost}>
+                              Replace
+                              <input
+                                type="file"
+                                accept=".xlsx,.xls"
+                                hidden
+                                disabled={pending}
+                                onChange={(e) => {
+                                  const file = e.target.files?.[0];
+                                  if (file) onReplace(f.id, file);
+                                  e.target.value = "";
+                                }}
+                              />
+                            </label>
+                          )}
+                          {canRemove && (
+                            <button type="button" className={styles.btnSmDanger} disabled={pending} onClick={() => onRemove(f.id, f.filename)}>
+                              Remove
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                     {openIssues === f.id && issues.length > 0 && (

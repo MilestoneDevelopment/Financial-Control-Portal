@@ -938,6 +938,15 @@ export type Database = {
           role_id: string
         }[]
       }
+      cache_fx_rate: {
+        Args: {
+          p_currency: Database["public"]["Enums"]["currency"]
+          p_date: string
+          p_rate: number
+          p_source: Database["public"]["Enums"]["fx_rate_source"]
+        }
+        Returns: undefined
+      }
       provision_org: {
         Args: { p_name: string; p_owner: string }
         Returns: string

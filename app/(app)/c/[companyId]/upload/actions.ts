@@ -19,7 +19,11 @@ import { requirePeriodMutable } from "@/lib/domain/period/lifecycle";
 import { validateUploadFile, hasBlockingIssue } from "@/lib/domain/upload/parse";
 import { buildImport } from "@/lib/domain/upload/import";
 import { readXlsxGrid } from "@/lib/server/xlsx";
+import { resolveRowFx, fxSourceForDate, type FxLookup } from "@/lib/domain/upload/fx-resolve";
+import { fetchNbgRate } from "@/lib/server/nbg";
 import type { Database } from "@/db/types";
+
+type Currency = Database["public"]["Enums"]["currency"];
 
 /** First/last ISO day of a month (or the whole year when month is null). */
 function periodRange(year: number, month: number | null): { start: string; end: string } {
@@ -277,4 +281,240 @@ export async function parseAccountingFileAction(fileId: string): Promise<void> {
     revalidatePath(`/c/${companyId}/upload`);
     throw e instanceof Error ? e : new Error(String(e));
   }
+}
+
+async function periodMutableGuard(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  periodId: string | null,
+): Promise<void> {
+  if (!periodId) return;
+  const { data: period } = await supabase
+    .from("periods")
+    .select("status, is_correction_mode")
+    .eq("id", periodId)
+    .maybeSingle();
+  if (period) {
+    requirePeriodMutable({ status: period.status, is_correction_mode: period.is_correction_mode });
+  }
+}
+
+/**
+ * Resolve pending FX for an imported file's foreign-currency transactions.
+ * Priority: existing fx_rates (exact date) -> NBG exact (cached) -> fx_rates/NBG
+ * prior date (nbg_prior_filled). Never overwrites already-resolved (imported)
+ * rows. Unresolved rows stay `pending` and get a MISSING_FX issue.
+ */
+export async function resolveFxForFileAction(fileId: string): Promise<void> {
+  const supabase = await createClient();
+  const file = await getAccountingFile(fileId);
+  if (!file) throw new Error("File not found.");
+  const companyId = file.company_id;
+  await requireCapability(supabase, "upload.file", companyId);
+  const company = await getCompany(companyId);
+  if (!company) throw new Error("Company not found.");
+  await periodMutableGuard(supabase, file.period_id);
+
+  const { data: pending, error } = await supabase
+    .from("transactions")
+    .select("id, transaction_date, original_amount, original_currency")
+    .eq("file_id", fileId)
+    .eq("fx_status", "pending");
+  if (error) throw new Error(error.message);
+
+  const rows = (pending ?? []).filter(
+    (r) => r.original_currency && r.original_currency !== company.base_currency,
+  );
+
+  let resolved = 0;
+  let stillPending = 0;
+  for (const r of rows) {
+    const currency = r.original_currency as Currency;
+    const date = r.transaction_date;
+    let found: FxLookup | null = null;
+
+    if (date) {
+      // 1. fx_rates exact date
+      const { data: exact } = await supabase
+        .from("fx_rates")
+        .select("rate, rate_date, source")
+        .eq("quote_currency", currency)
+        .eq("rate_date", date)
+        .order("source")
+        .limit(1)
+        .maybeSingle();
+      if (exact) found = { rate: Number(exact.rate), date: exact.rate_date, source: exact.source };
+
+      // 2. NBG exact (cache the result)
+      if (!found) {
+        const nbg = await fetchNbgRate(currency, date);
+        if (nbg && nbg.rate > 0) {
+          const rateDate = nbg.date || date;
+          const source = fxSourceForDate(date, rateDate, "nbg");
+          await supabase.rpc("cache_fx_rate", {
+            p_currency: currency,
+            p_date: rateDate,
+            p_rate: nbg.rate,
+            p_source: source,
+          });
+          found = { rate: nbg.rate, date: rateDate, source };
+        }
+      }
+
+      // 3. fx_rates prior date (nbg_prior_filled)
+      if (!found) {
+        const { data: prior } = await supabase
+          .from("fx_rates")
+          .select("rate, rate_date, source")
+          .eq("quote_currency", currency)
+          .lt("rate_date", date)
+          .order("rate_date", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (prior) found = { rate: Number(prior.rate), date: prior.rate_date, source: "nbg_prior_filled" };
+      }
+    }
+
+    const res = resolveRowFx({
+      currency,
+      originalAmount: r.original_amount !== null ? Number(r.original_amount) : null,
+      baseCurrency: company.base_currency,
+      found,
+    });
+
+    if (res.resolved) {
+      await supabase
+        .from("transactions")
+        .update({
+          fx_rate_to_gel: res.fxRateToGel,
+          fx_rate_source: res.fxRateSource,
+          fx_rate_date: res.fxRateDate,
+          fx_status: res.fxStatus,
+          amount_gel: res.amountGel,
+        })
+        .eq("id", r.id);
+      resolved += 1;
+    } else {
+      stillPending += 1;
+      await supabase.from("accounting_file_issues").insert({
+        file_id: fileId,
+        company_id: companyId,
+        row_index: null,
+        severity: "warning",
+        code: res.issue?.code ?? "MISSING_FX",
+        message: res.issue?.message ?? "Missing FX rate.",
+      });
+    }
+  }
+
+  await logAudit(supabase, {
+    orgId: company.org_id,
+    companyId,
+    action: "accounting.fx.resolved",
+    target: file.original_filename,
+    details: { fileId, resolved, stillPending },
+    severity: stillPending > 0 ? "warn" : "ok",
+  });
+  revalidatePath(`/c/${companyId}/upload`);
+}
+
+/**
+ * Remove an uploaded file: delete the row (cascades transactions + issues) and
+ * its private Storage object. Gated by upload.remove; blocked when bound to a
+ * locked/closed period without Correction Mode.
+ */
+export async function removeAccountingFileAction(fileId: string): Promise<void> {
+  const supabase = await createClient();
+  const file = await getAccountingFile(fileId);
+  if (!file) throw new Error("File not found.");
+  const companyId = file.company_id;
+  await requireCapability(supabase, "upload.remove", companyId);
+  const company = await getCompany(companyId);
+  if (!company) throw new Error("Company not found.");
+  await periodMutableGuard(supabase, file.period_id);
+
+  // DB first (atomic cascade), then best-effort storage cleanup.
+  const { error: delErr } = await supabase.from("accounting_files").delete().eq("id", fileId);
+  if (delErr) throw new Error(delErr.message);
+  const { error: rmErr } = await supabase.storage.from("accounting-files").remove([file.storage_path]);
+
+  await logAudit(supabase, {
+    orgId: company.org_id,
+    companyId,
+    action: "accounting.file.removed",
+    target: file.original_filename,
+    details: { fileId, storageRemoved: !rmErr },
+    severity: "warn",
+  });
+  revalidatePath(`/c/${companyId}/upload`);
+}
+
+/**
+ * Replace a file: upload a new version that supersedes the old one (inheriting its
+ * period), and flag the old row `is_superseded` so history stays traceable. The
+ * old Storage object is preserved. Gated by upload.replace.
+ */
+export async function replaceAccountingFileAction(formData: FormData): Promise<void> {
+  const companyId = String(formData.get("companyId") ?? "");
+  const oldFileId = String(formData.get("oldFileId") ?? "");
+  const file = formData.get("file");
+  if (!companyId || !oldFileId) throw new Error("Missing company or original file.");
+  if (!(file instanceof File)) throw new Error("No replacement file provided.");
+
+  const supabase = await createClient();
+  await requireCapability(supabase, "upload.replace", companyId);
+  const company = await getCompany(companyId);
+  if (!company) throw new Error("Company not found.");
+  const old = await getAccountingFile(oldFileId);
+  if (!old || old.company_id !== companyId) throw new Error("Original file not found.");
+
+  const fileIssues = validateUploadFile({ filename: file.name, size: file.size });
+  if (hasBlockingIssue(fileIssues)) {
+    throw new Error(fileIssues.find((i) => i.severity === "error")!.message);
+  }
+  await periodMutableGuard(supabase, old.period_id);
+  const isCorrectionUpload = old.is_correction_upload;
+
+  const fileId = crypto.randomUUID();
+  const safeName = file.name.replace(/[^\w.\-]+/g, "_");
+  const path = `${companyId}/${fileId}/${safeName}`;
+  const { error: upErr } = await supabase.storage
+    .from("accounting-files")
+    .upload(path, file, { upsert: false, contentType: file.type || undefined });
+  if (upErr) throw new Error(`Storage upload failed: ${upErr.message}`);
+
+  const { error: insErr } = await supabase.from("accounting_files").insert({
+    id: fileId,
+    company_id: companyId,
+    period_id: old.period_id,
+    storage_path: path,
+    original_filename: file.name,
+    file_size: file.size,
+    selected_period_start: old.selected_period_start,
+    selected_period_end: old.selected_period_end,
+    import_status: "uploaded",
+    validation_status: "pending",
+    supersedes_file_id: oldFileId,
+    is_correction_upload: isCorrectionUpload,
+  });
+  if (insErr) {
+    await supabase.storage.from("accounting-files").remove([path]);
+    throw new Error(insErr.message);
+  }
+
+  // Flag the old file as superseded (kept for traceability).
+  const { error: supErr } = await supabase
+    .from("accounting_files")
+    .update({ is_superseded: true, updated_at: new Date().toISOString() })
+    .eq("id", oldFileId);
+  if (supErr) throw new Error(supErr.message);
+
+  await logAudit(supabase, {
+    orgId: company.org_id,
+    companyId,
+    action: "accounting.file.replaced",
+    target: file.name,
+    details: { newFileId: fileId, supersededFileId: oldFileId },
+    severity: "warn",
+  });
+  revalidatePath(`/c/${companyId}/upload`);
 }
