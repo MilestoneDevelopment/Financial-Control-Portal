@@ -363,6 +363,97 @@ export type Database = {
           },
         ]
       }
+      classification_rules: {
+        Row: {
+          cash_direction: Database["public"]["Enums"]["cash_direction"] | null
+          class_id: string
+          company_id: string
+          confidence_score: number
+          created_at: string
+          created_by: string | null
+          credit_account_pattern: string | null
+          currency: Database["public"]["Enums"]["currency"] | null
+          debit_account_pattern: string | null
+          description_pattern: string | null
+          id: string
+          is_active: boolean
+          max_amount: number | null
+          min_amount: number | null
+          name: string
+          org_id: string
+          priority: number
+          rule_type: Database["public"]["Enums"]["classification_rule_type"]
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          cash_direction?: Database["public"]["Enums"]["cash_direction"] | null
+          class_id: string
+          company_id: string
+          confidence_score?: number
+          created_at?: string
+          created_by?: string | null
+          credit_account_pattern?: string | null
+          currency?: Database["public"]["Enums"]["currency"] | null
+          debit_account_pattern?: string | null
+          description_pattern?: string | null
+          id?: string
+          is_active?: boolean
+          max_amount?: number | null
+          min_amount?: number | null
+          name: string
+          org_id: string
+          priority?: number
+          rule_type: Database["public"]["Enums"]["classification_rule_type"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          cash_direction?: Database["public"]["Enums"]["cash_direction"] | null
+          class_id?: string
+          company_id?: string
+          confidence_score?: number
+          created_at?: string
+          created_by?: string | null
+          credit_account_pattern?: string | null
+          currency?: Database["public"]["Enums"]["currency"] | null
+          debit_account_pattern?: string | null
+          description_pattern?: string | null
+          id?: string
+          is_active?: boolean
+          max_amount?: number | null
+          min_amount?: number | null
+          name?: string
+          org_id?: string
+          priority?: number
+          rule_type?: Database["public"]["Enums"]["classification_rule_type"]
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "classification_rules_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "cf_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "classification_rules_org_id_fkey"
+            columns: ["org_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       companies: {
         Row: {
           base_currency: Database["public"]["Enums"]["currency"]
@@ -815,7 +906,13 @@ export type Database = {
         Row: {
           amount_gel: number | null
           class_id: string | null
+          classification_confidence: number | null
+          classification_source:
+            | Database["public"]["Enums"]["classification_source"]
+            | null
           classification_status: Database["public"]["Enums"]["tx_classification_status"]
+          classified_at: string | null
+          classified_by: string | null
           comment: string | null
           company_id: string
           created_at: string
@@ -831,6 +928,7 @@ export type Database = {
           fx_rate_to_gel: number | null
           fx_status: Database["public"]["Enums"]["fx_status"]
           id: string
+          matched_rule_id: string | null
           original_amount: number | null
           original_currency: Database["public"]["Enums"]["currency"] | null
           period_id: string | null
@@ -842,7 +940,13 @@ export type Database = {
         Insert: {
           amount_gel?: number | null
           class_id?: string | null
+          classification_confidence?: number | null
+          classification_source?:
+            | Database["public"]["Enums"]["classification_source"]
+            | null
           classification_status?: Database["public"]["Enums"]["tx_classification_status"]
+          classified_at?: string | null
+          classified_by?: string | null
           comment?: string | null
           company_id: string
           created_at?: string
@@ -858,6 +962,7 @@ export type Database = {
           fx_rate_to_gel?: number | null
           fx_status?: Database["public"]["Enums"]["fx_status"]
           id?: string
+          matched_rule_id?: string | null
           original_amount?: number | null
           original_currency?: Database["public"]["Enums"]["currency"] | null
           period_id?: string | null
@@ -869,7 +974,13 @@ export type Database = {
         Update: {
           amount_gel?: number | null
           class_id?: string | null
+          classification_confidence?: number | null
+          classification_source?:
+            | Database["public"]["Enums"]["classification_source"]
+            | null
           classification_status?: Database["public"]["Enums"]["tx_classification_status"]
+          classified_at?: string | null
+          classified_by?: string | null
           comment?: string | null
           company_id?: string
           created_at?: string
@@ -885,6 +996,7 @@ export type Database = {
           fx_rate_to_gel?: number | null
           fx_status?: Database["public"]["Enums"]["fx_status"]
           id?: string
+          matched_rule_id?: string | null
           original_amount?: number | null
           original_currency?: Database["public"]["Enums"]["currency"] | null
           period_id?: string | null
@@ -969,6 +1081,14 @@ export type Database = {
       audit_severity: "ok" | "warn"
       cash_direction: "in" | "out" | "neutral"
       cf_node_kind: "section" | "group" | "class"
+      classification_rule_type:
+        | "account_exact"
+        | "account_pair"
+        | "description_contains"
+        | "description_regex"
+        | "amount_direction"
+        | "combined"
+      classification_source: "manual" | "rule"
       company_status: "draft" | "active" | "archived"
       currency: "GEL" | "USD" | "EUR"
       fx_rate_source: "imported" | "nbg" | "nbg_prior_filled" | "manual"
@@ -1115,6 +1235,15 @@ export const Constants = {
       audit_severity: ["ok", "warn"],
       cash_direction: ["in", "out", "neutral"],
       cf_node_kind: ["section", "group", "class"],
+      classification_rule_type: [
+        "account_exact",
+        "account_pair",
+        "description_contains",
+        "description_regex",
+        "amount_direction",
+        "combined",
+      ],
+      classification_source: ["manual", "rule"],
       company_status: ["draft", "active", "archived"],
       currency: ["GEL", "USD", "EUR"],
       fx_rate_source: ["imported", "nbg", "nbg_prior_filled", "manual"],

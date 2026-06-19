@@ -38,6 +38,9 @@ export const CAPABILITIES: Capability[] = [
   { key: "upload.remove", group: "Upload & Classification", label: "Remove uploaded file", minLevel: 3 },
   { key: "upload.replace", group: "Upload & Classification", label: "Replace uploaded file", minLevel: 2 },
   { key: "classification.review", group: "Upload & Classification", label: "Review classification", minLevel: 2 },
+  { key: "classification.run", group: "Upload & Classification", label: "Run classification engine", minLevel: 2 },
+  { key: "classification.assign", group: "Upload & Classification", label: "Assign transaction classification", minLevel: 2 },
+  { key: "classification.manage_rules", group: "Upload & Classification", label: "Manage classification rules", minLevel: 3 },
   { key: "class.add", group: "Upload & Classification", label: "Add class", minLevel: 2 },
 
   // Forecast & Budget
