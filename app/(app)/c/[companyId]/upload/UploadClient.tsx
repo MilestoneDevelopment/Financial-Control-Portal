@@ -1,14 +1,15 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { Fragment, useRef, useState, useTransition } from "react";
 import {
   IMPORT_STATUS_LABEL,
   VALIDATION_STATUS_LABEL,
   type ImportStatus,
   type ValidationStatus,
+  type IssueSeverity,
 } from "@/lib/domain/upload/status";
 import type { PeriodStatus } from "@/lib/domain/period/lifecycle";
-import { uploadAccountingFileAction } from "./actions";
+import { uploadAccountingFileAction, parseAccountingFileAction } from "./actions";
 import styles from "./upload.module.css";
 
 export interface PeriodOption {
@@ -16,6 +17,13 @@ export interface PeriodOption {
   label: string;
   status: PeriodStatus;
   mutable: boolean;
+}
+
+export interface IssueRow {
+  rowIndex: number | null;
+  severity: IssueSeverity;
+  code: string;
+  message: string;
 }
 
 export interface FileRow {
@@ -26,6 +34,8 @@ export interface FileRow {
   validationStatus: ValidationStatus;
   rowCount: number | null;
   isCorrection: boolean;
+  detectedStart: string | null;
+  detectedEnd: string | null;
   createdAt: string;
 }
 
@@ -46,11 +56,13 @@ export function UploadClient({
   canUpload,
   periods,
   files,
+  issuesByFile,
 }: {
   companyId: string;
   canUpload: boolean;
   periods: PeriodOption[];
   files: FileRow[];
+  issuesByFile: Record<string, IssueRow[]>;
 }) {
   const [periodId, setPeriodId] = useState<string>("");
   const [fileName, setFileName] = useState<string>("");
@@ -58,6 +70,8 @@ export function UploadClient({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [parsingId, setParsingId] = useState<string | null>(null);
+  const [openIssues, setOpenIssues] = useState<string | null>(null);
 
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -77,11 +91,27 @@ export function UploadClient({
     startTransition(async () => {
       try {
         await uploadAccountingFileAction(fd);
-        setNotice(`Uploaded “${file.name}”. Parsing & import arrive in Phase 2B.`);
+        setNotice(`Uploaded “${file.name}”. Use Parse to import its rows.`);
         setFileName("");
         if (input) input.value = "";
       } catch (err) {
         setError(err instanceof Error ? err.message : "Upload failed.");
+      }
+    });
+  }
+
+  function onParse(fileId: string) {
+    setError(null);
+    setNotice(null);
+    setParsingId(fileId);
+    startTransition(async () => {
+      try {
+        await parseAccountingFileAction(fileId);
+        setNotice("Parse complete. Status and row count updated below.");
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Parse failed.");
+      } finally {
+        setParsingId(null);
       }
     });
   }
@@ -133,7 +163,7 @@ export function UploadClient({
           {notice && <div className={styles.notice}>{notice}</div>}
 
           <button className={styles.btn} type="submit" disabled={pending}>
-            {pending ? "Uploading…" : "Upload file"}
+            {pending && !parsingId ? "Uploading…" : "Upload file"}
           </button>
         </form>
       )}
@@ -151,23 +181,73 @@ export function UploadClient({
                 <th>Import</th>
                 <th>Validation</th>
                 <th>Rows</th>
+                <th>Detected period</th>
+                <th>Issues</th>
                 <th>Uploaded</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              {files.map((f) => (
-                <tr key={f.id}>
-                  <td>
-                    {f.filename}
-                    {f.isCorrection && <span className={styles.badge}>correction</span>}
-                  </td>
-                  <td>{formatBytes(f.size)}</td>
-                  <td>{IMPORT_STATUS_LABEL[f.importStatus]}</td>
-                  <td>{VALIDATION_STATUS_LABEL[f.validationStatus]}</td>
-                  <td>{f.rowCount ?? "—"}</td>
-                  <td>{formatWhen(f.createdAt)}</td>
-                </tr>
-              ))}
+              {files.map((f) => {
+                const issues = issuesByFile[f.id] ?? [];
+                const parseable = f.importStatus === "uploaded" || f.importStatus === "failed";
+                const detected =
+                  f.detectedStart && f.detectedEnd ? `${f.detectedStart} → ${f.detectedEnd}` : "—";
+                return (
+                  <Fragment key={f.id}>
+                    <tr>
+                      <td>
+                        {f.filename}
+                        {f.isCorrection && <span className={styles.badge}>correction</span>}
+                      </td>
+                      <td>{formatBytes(f.size)}</td>
+                      <td>{IMPORT_STATUS_LABEL[f.importStatus]}</td>
+                      <td>{VALIDATION_STATUS_LABEL[f.validationStatus]}</td>
+                      <td>{f.rowCount ?? "—"}</td>
+                      <td>{detected}</td>
+                      <td>
+                        {issues.length > 0 ? (
+                          <button
+                            type="button"
+                            className={styles.linkBtn}
+                            onClick={() => setOpenIssues(openIssues === f.id ? null : f.id)}
+                          >
+                            {issues.length} {openIssues === f.id ? "▲" : "▼"}
+                          </button>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                      <td>{formatWhen(f.createdAt)}</td>
+                      <td>
+                        {canUpload && parseable && (
+                          <button
+                            type="button"
+                            className={styles.btnSm}
+                            disabled={pending}
+                            onClick={() => onParse(f.id)}
+                          >
+                            {parsingId === f.id ? "Parsing…" : f.importStatus === "failed" ? "Retry" : "Parse"}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                    {openIssues === f.id && issues.length > 0 && (
+                      <tr>
+                        <td colSpan={9} className={styles.issuesCell}>
+                          {issues.map((iss, idx) => (
+                            <div key={idx} className={styles.issueLine} data-sev={iss.severity}>
+                              <span className={styles.issueCode}>{iss.code}</span>
+                              {iss.rowIndex != null && <span className={styles.issueRow}>row {iss.rowIndex}</span>}
+                              <span>{iss.message}</span>
+                            </div>
+                          ))}
+                        </td>
+                      </tr>
+                    )}
+                  </Fragment>
+                );
+              })}
             </tbody>
           </table>
         )}

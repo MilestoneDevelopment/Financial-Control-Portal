@@ -41,3 +41,14 @@ export async function listFileIssues(fileId: string): Promise<AccountingFileIssu
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+export async function listCompanyIssues(companyId: string): Promise<AccountingFileIssue[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("accounting_file_issues")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("created_at", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}

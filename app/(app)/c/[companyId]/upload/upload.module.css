@@ -135,3 +135,55 @@
   border-radius: 5px;
   padding: 2px 6px;
 }
+
+.btnSm {
+  border: none;
+  cursor: pointer;
+  background: var(--fcp-ink-strong);
+  color: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 5px 11px;
+}
+.btnSm:disabled {
+  background: #c4c8ce;
+  cursor: not-allowed;
+}
+.linkBtn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--fcp-accent, #2f6fed);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 0;
+}
+.issuesCell {
+  background: var(--fcp-surface-3, #f7f8fa);
+  padding: 10px 12px !important;
+}
+.issueLine {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 12px;
+  padding: 3px 0;
+  color: var(--fcp-gray-700);
+}
+.issueLine[data-sev="error"] .issueCode {
+  color: #c0493a;
+}
+.issueLine[data-sev="warning"] .issueCode {
+  color: #b5781a;
+}
+.issueCode {
+  font-weight: 700;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.issueRow {
+  font-size: 10.5px;
+  color: var(--fcp-gray-400);
+}

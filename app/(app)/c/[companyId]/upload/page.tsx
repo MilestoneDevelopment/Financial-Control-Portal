@@ -4,8 +4,8 @@ import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { capabilityMap } from "@/lib/auth/guards";
 import { listPeriods } from "@/lib/data/periods";
 import { periodLabel, isPeriodMutable } from "@/lib/domain/period/lifecycle";
-import { listAccountingFiles } from "@/lib/data/uploads";
-import { UploadClient, type PeriodOption, type FileRow } from "./UploadClient";
+import { listAccountingFiles, listCompanyIssues } from "@/lib/data/uploads";
+import { UploadClient, type PeriodOption, type FileRow, type IssueRow } from "./UploadClient";
 import styles from "./upload.module.css";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +20,7 @@ export default async function UploadPage({
   let canUpload = false;
   let periods: PeriodOption[] = [];
   let files: FileRow[] = [];
+  let issuesByFile: Record<string, IssueRow[]> = {};
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -38,8 +39,19 @@ export default async function UploadPage({
       validationStatus: f.validation_status,
       rowCount: f.row_count,
       isCorrection: f.is_correction_upload,
+      detectedStart: f.detected_period_start,
+      detectedEnd: f.detected_period_end,
       createdAt: f.created_at,
     }));
+    issuesByFile = {};
+    for (const iss of await listCompanyIssues(companyId)) {
+      (issuesByFile[iss.file_id] ??= []).push({
+        rowIndex: iss.row_index,
+        severity: iss.severity,
+        code: iss.code,
+        message: iss.message,
+      });
+    }
   }
 
   return (
@@ -55,6 +67,7 @@ export default async function UploadPage({
           canUpload={canUpload}
           periods={periods}
           files={files}
+          issuesByFile={issuesByFile}
         />
       </div>
     </>

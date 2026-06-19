@@ -28,6 +28,8 @@ export interface TransactionDraft {
   creditAmount: number | null;
   originalAmount: number | null;
   originalCurrency: Currency | null;
+  fxRate: number | null;
+  fxRateDate: string | null;
   rawRow: Record<string, unknown>;
 }
 
@@ -53,6 +55,8 @@ export const EXPECTED_COLUMNS: ColumnSpec[] = [
   { field: "creditAmount",    label: "Credit amount",   aliases: ["credit amount", "credit sum", "კრედიტის თანხა", "cr amount"], required: false },
   { field: "originalAmount",  label: "Amount",          aliases: ["amount", "თანხა", "sum", "value"], required: false },
   { field: "originalCurrency",label: "Currency",        aliases: ["currency", "ვალუტა", "ccy", "cur"], required: false },
+  { field: "fxRate",          label: "FX rate",         aliases: ["fx rate", "rate", "exchange rate", "კურსი", "rate to gel"], required: false },
+  { field: "fxRateDate",      label: "FX rate date",    aliases: ["fx rate date", "rate date", "fx date", "კურსის თარიღი"], required: false },
 ];
 
 /** Map a raw header string to a known field, or null if unrecognized. */
