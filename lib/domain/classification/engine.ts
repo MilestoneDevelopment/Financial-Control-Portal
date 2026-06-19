@@ -127,14 +127,15 @@ function matchesType(tx: ClassifiableTx, rule: ClassRule): boolean {
   }
 }
 
-function ruleMatches(tx: ClassifiableTx, rule: ClassRule): boolean {
+/** Whether a single rule matches a transaction (used by classify + preview). */
+export function ruleMatchesTx(tx: ClassifiableTx, rule: ClassRule): boolean {
   if (!rule.isActive) return false;
   if (!passesFilters(tx, rule)) return false;
   return matchesType(tx, rule);
 }
 
 export function classifyTransaction(tx: ClassifiableTx, rules: ClassRule[]): ClassificationResult {
-  const matched = rules.filter((r) => ruleMatches(tx, r));
+  const matched = rules.filter((r) => ruleMatchesTx(tx, r));
   if (matched.length === 0) {
     return { status: "unclassified", classId: null, matchedRuleId: null, confidence: null, reason: "No matching rule." };
   }

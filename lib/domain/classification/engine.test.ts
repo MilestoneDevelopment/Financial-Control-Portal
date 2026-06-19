@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { classifyTransaction, type ClassRule, type ClassifiableTx } from "./engine.ts";
+import { classifyTransaction, ruleMatchesTx, type ClassRule, type ClassifiableTx } from "./engine.ts";
 
 function rule(p: Partial<ClassRule>): ClassRule {
   return {
@@ -93,4 +93,21 @@ test("shared filters: currency/amount band exclude non-matching rows", () => {
 test("inactive rules are ignored", () => {
   const r = rule({ id: "off", classId: "x", ruleType: "account_exact", debitAccountPattern: "1210", isActive: false });
   assert.equal(classifyTransaction(tx({ debitAccount: "1210" }), [r]).status, "unclassified");
+});
+
+test("ruleMatchesTx: preview matcher mirrors engine matching (incl. inactive)", () => {
+  const active = rule({ ruleType: "account_pair", debitAccountPattern: "1210", creditAccountPattern: "6100" });
+  const inactive = rule({ ...active, isActive: false });
+  const t = tx({ debitAccount: "1210", creditAccount: "6100" });
+  assert.equal(ruleMatchesTx(t, active), true);
+  assert.equal(ruleMatchesTx(t, inactive), false);
+  assert.equal(ruleMatchesTx(tx({ debitAccount: "1210", creditAccount: "9999" }), active), false);
+});
+
+test("lower numeric priority wins among same rule type", () => {
+  const lo = rule({ id: "lo", classId: "LO", ruleType: "account_exact", debitAccountPattern: "1210", priority: 5 });
+  const hi = rule({ id: "hi", classId: "HI", ruleType: "account_exact", debitAccountPattern: "1210", priority: 50 });
+  const res = classifyTransaction(tx({ debitAccount: "1210" }), [hi, lo]);
+  assert.equal(res.classId, "LO");
+  assert.equal(res.matchedRuleId, "lo");
 });

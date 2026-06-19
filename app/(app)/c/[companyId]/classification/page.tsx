@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { TopBar } from "@/components/shell/TopBar";
 import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
@@ -6,8 +7,10 @@ import { listAccountingFiles } from "@/lib/data/uploads";
 import {
   listActiveClasses,
   listTransactionsForReview,
+  listClassificationFacts,
   type TxFilters,
 } from "@/lib/data/classification";
+import { summarizeCoverage, topUnmatchedPairs } from "@/lib/domain/classification/coverage";
 import { ClassificationClient, type TxRow, type Filters } from "./ClassificationClient";
 import styles from "./classification.module.css";
 
@@ -41,6 +44,10 @@ export default async function ClassificationPage({
   let classes: { id: string; label: string; cashDirection: string }[] = [];
   let files: { id: string; filename: string }[] = [];
   let rows: TxRow[] = [];
+  let coverage = summarizeCoverage([]);
+  let topUnmatched: { pair: string; count: number }[] = [];
+  let fxPending = 0;
+  let activeRules = 0;
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -55,6 +62,17 @@ export default async function ClassificationPage({
 
     classes = await listActiveClasses(companyId);
     files = (await listAccountingFiles(companyId)).map((f) => ({ id: f.id, filename: f.original_filename }));
+
+    const facts = await listClassificationFacts(companyId);
+    coverage = summarizeCoverage(facts);
+    topUnmatched = topUnmatchedPairs(facts).map((p) => ({ pair: p.pair, count: p.count }));
+    fxPending = facts.filter((f) => f.fxStatus === "pending").length;
+    const { count } = await supabase
+      .from("classification_rules")
+      .select("id", { count: "exact", head: true })
+      .eq("company_id", companyId)
+      .eq("is_active", true);
+    activeRules = count ?? 0;
 
     const dbFilters: TxFilters = {
       fileId: filters.fileId || undefined,
@@ -87,6 +105,41 @@ export default async function ClassificationPage({
         usesPeriod={false}
       />
       <div className={styles.pageBody}>
+        <div className={styles.coverage}>
+          <div className={styles.coverageCards}>
+            {[
+              ["Coverage", `${coverage.coveragePct}%`],
+              ["Total", coverage.total],
+              ["Manual", coverage.confirmedManual],
+              ["By rule", coverage.confirmedRule],
+              ["Needs review", coverage.suggested],
+              ["Unclassified", coverage.unclassified],
+              ["FX pending", fxPending],
+              ["Active rules", activeRules],
+            ].map(([label, value]) => (
+              <div key={label} className={styles.covCard}>
+                <div className={styles.covValue}>{value}</div>
+                <div className={styles.covLabel}>{label}</div>
+              </div>
+            ))}
+          </div>
+          <div className={styles.coverageSide}>
+            {canManageRules && (
+              <Link href={`/c/${companyId}/classification/rules`} className={styles.btnSm}>
+                Manage rules
+              </Link>
+            )}
+            {topUnmatched.length > 0 && (
+              <div className={styles.unmatched}>
+                <span className={styles.unmatchedTitle}>Top unmatched pairs:</span>
+                {topUnmatched.map((u) => (
+                  <span key={u.pair} className={styles.unmatchedItem}>{u.pair} ({u.count})</span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
         <ClassificationClient
           companyId={companyId}
           canAssign={canAssign}

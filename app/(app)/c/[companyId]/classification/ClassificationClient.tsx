@@ -70,6 +70,9 @@ export function ClassificationClient({
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkClass, setBulkClass] = useState<string>("");
   const [f, setF] = useState<Filters>(filters);
+  const [optUnclass, setOptUnclass] = useState(true);
+  const [optSuggested, setOptSuggested] = useState(true);
+  const [optOverwrite, setOptOverwrite] = useState(false);
 
   const classLabel = (id: string | null) => classes.find((c) => c.id === id)?.label ?? "—";
 
@@ -140,17 +143,43 @@ export function ClassificationClient({
         <input className={styles.input} type="date" value={f.dateTo} onChange={(e) => setF({ ...f, dateTo: e.target.value })} />
         <input className={styles.input} placeholder="Search description / account" value={f.search} onChange={(e) => setF({ ...f, search: e.target.value })} />
         <button className={styles.btnSm} type="submit" disabled={pending}>Apply</button>
-        {canRun && (
+      </form>
+
+      {canRun && (
+        <div className={styles.rerunBar}>
+          <label className={styles.checkLabel}>
+            <input type="checkbox" checked={optUnclass} onChange={(e) => setOptUnclass(e.target.checked)} /> Unclassified
+          </label>
+          <label className={styles.checkLabel}>
+            <input type="checkbox" checked={optSuggested} onChange={(e) => setOptSuggested(e.target.checked)} /> Needs review
+          </label>
+          <label className={styles.checkLabel}>
+            <input type="checkbox" checked={optOverwrite} onChange={(e) => setOptOverwrite(e.target.checked)} /> Overwrite rule-based
+          </label>
+          <span className={styles.rerunNote}>Manual classifications are never overwritten.</span>
           <button
             type="button"
             className={styles.btn}
             disabled={pending || noClasses}
-            onClick={() => run("Run classification", () => runClassificationAction({ companyId, fileId: f.fileId || null }), "Classification run complete.")}
+            onClick={() => {
+              if (optOverwrite && !window.confirm("Re-evaluate and possibly overwrite existing RULE-based classifications? (Manual ones are never changed.)")) return;
+              run(
+                "Run classification",
+                () => runClassificationAction({
+                  companyId,
+                  fileId: f.fileId || null,
+                  includeUnclassified: optUnclass,
+                  includeSuggested: optSuggested,
+                  overwriteRuleConfirmed: optOverwrite,
+                }),
+                "Classification run complete.",
+              );
+            }}
           >
             {pending ? "Working…" : "Run classification"}
           </button>
-        )}
-      </form>
+        </div>
+      )}
 
       {error && <div className={styles.error}>{error}</div>}
       {notice && <div className={styles.notice}>{notice}</div>}

@@ -72,3 +72,41 @@ export async function listActiveRules(companyId: string): Promise<Classification
   if (error) throw new Error(error.message);
   return data ?? [];
 }
+
+/** All rules (active + inactive) for the management UI. */
+export async function listAllRules(companyId: string): Promise<ClassificationRule[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("classification_rules")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("is_active", { ascending: false })
+    .order("priority", { ascending: true });
+  if (error) throw new Error(error.message);
+  return data ?? [];
+}
+
+export interface ClassificationFact {
+  status: Database["public"]["Enums"]["tx_classification_status"];
+  source: Database["public"]["Enums"]["classification_source"] | null;
+  debit: string | null;
+  credit: string | null;
+  fxStatus: Database["public"]["Enums"]["fx_status"];
+}
+
+/** Lightweight per-transaction facts for the coverage summary. */
+export async function listClassificationFacts(companyId: string): Promise<ClassificationFact[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("classification_status, classification_source, debit_account, credit_account, fx_status")
+    .eq("company_id", companyId);
+  if (error) throw new Error(error.message);
+  return (data ?? []).map((t) => ({
+    status: t.classification_status,
+    source: t.classification_source,
+    debit: t.debit_account,
+    credit: t.credit_account,
+    fxStatus: t.fx_status,
+  }));
+}
