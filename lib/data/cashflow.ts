@@ -8,6 +8,11 @@ import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { getActiveVersion, getNodes } from "@/lib/data/structure";
 import type { CashFlowNode, CashFlowTxn } from "@/lib/domain/cashflow/types";
+import {
+  periodDateRange,
+  type PeriodStatus,
+  type OpeningBalanceSource,
+} from "@/lib/domain/cashflow/periods";
 
 /** The active structure's nodes mapped into the generator's node shape. */
 export async function listCashFlowNodes(companyId: string): Promise<CashFlowNode[]> {
@@ -76,7 +81,10 @@ export interface CashFlowPeriodOption {
   label: string;
   year: number;
   month: number | null;
+  status: PeriodStatus;
   openingBalance: number | null;
+  openingBalanceSource: OpeningBalanceSource | null;
+  closingBalance: number | null;
   dateFrom: string;
   dateTo: string;
 }
@@ -84,7 +92,8 @@ export interface CashFlowPeriodOption {
 /**
  * Periods available as cash-flow ranges, newest first. Each period yields a
  * concrete date range (whole month, or whole year when month is null) plus its
- * stored opening balance - which the page uses verbatim and never invents.
+ * stored opening balance, source, status, and stored closing - all used verbatim
+ * (never invented). The concrete range is derived by the pure `periodDateRange`.
  */
 export async function listCashFlowPeriods(
   companyId: string,
@@ -92,45 +101,24 @@ export async function listCashFlowPeriods(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("periods")
-    .select("id, year, month, opening_balance")
+    .select("id, year, month, status, opening_balance, opening_balance_source, closing_balance")
     .eq("company_id", companyId)
     .order("year", { ascending: false })
     .order("month", { ascending: false, nullsFirst: false });
   if (error) throw new Error(error.message);
   return (data ?? []).map((p) => {
-    const { dateFrom, dateTo, label } = periodRange(p.year, p.month);
+    const { dateFrom, dateTo, label } = periodDateRange(p.year, p.month);
     return {
       id: p.id,
       label,
       year: p.year,
       month: p.month,
+      status: p.status,
       openingBalance: p.opening_balance,
+      openingBalanceSource: p.opening_balance_source,
+      closingBalance: p.closing_balance,
       dateFrom,
       dateTo,
     };
   });
-}
-
-const MONTHS = [
-  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
-];
-
-/** Concrete inclusive date range + label for a period (month or whole year). */
-function periodRange(year: number, month: number | null): {
-  dateFrom: string;
-  dateTo: string;
-  label: string;
-} {
-  const pad = (n: number) => String(n).padStart(2, "0");
-  if (month === null) {
-    return { dateFrom: `${year}-01-01`, dateTo: `${year}-12-31`, label: `FY${year}` };
-  }
-  // month is 1-12 in the periods table; last day via day 0 of the next month.
-  const lastDay = new Date(year, month, 0).getDate();
-  return {
-    dateFrom: `${year}-${pad(month)}-01`,
-    dateTo: `${year}-${pad(month)}-${pad(lastDay)}`,
-    label: `${MONTHS[month - 1]} ${year}`,
-  };
 }

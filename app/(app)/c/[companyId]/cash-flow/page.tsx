@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { isSupabaseConfigured } from "@/lib/supabase/env";
 import { capabilityMap } from "@/lib/auth/guards";
 import { formatAmount } from "@/lib/format/money";
+import { PERIOD_STATUS_LABEL } from "@/lib/domain/period/lifecycle";
 import {
   listCashFlowNodes,
   listCashFlowTransactions,
@@ -13,6 +14,15 @@ import {
 import { buildCashFlowTree, computeClosingBalance } from "@/lib/domain/cashflow/generate";
 import { summarizeCashFlowCoverage, type CashFlowCoverageFact } from "@/lib/domain/cashflow/coverage";
 import { formatCashFlowRows } from "@/lib/domain/cashflow/format";
+import {
+  adjacentPeriods,
+  resolveOpeningBalance,
+  ytdDateRange,
+  isLockedOrClosed,
+  OPENING_STATE_LABEL,
+  type OpeningResolution,
+  type PeriodStatus,
+} from "@/lib/domain/cashflow/periods";
 import { CashFlowFilters } from "./CashFlowFilters";
 import styles from "./cash-flow.module.css";
 
@@ -42,9 +52,14 @@ export default async function CashFlowPage({
   let rows: ReturnType<typeof formatCashFlowRows> = [];
   let net = 0;
   let coverage = summarizeCashFlowCoverage([]);
-  let openingBalance: number | null = null;
   let scopeLabel = "All transactions";
   let usingDateRange = true;
+
+  // Period-aware state (only populated when a period is selected).
+  let inPeriodMode = false;
+  let periodStatus: PeriodStatus | null = null;
+  let opening: OpeningResolution = { state: "missing", value: null, candidate: null };
+  let ytd: { label: string; net: number } | null = null;
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -53,13 +68,16 @@ export default async function CashFlowPage({
     const allPeriods = await listCashFlowPeriods(companyId);
     periods = allPeriods.map((p) => ({ id: p.id, label: p.label }));
 
-    // Resolve the scope: a selected period (carries its opening balance) wins
-    // over a manual date range.
+    const nodes = await listCashFlowNodes(companyId);
+    hasStructure = nodes.some((n) => n.kind === "section");
+
+    // Resolve the scope: a selected period wins over a manual date range.
     let range: CashFlowDateRange = {};
     const activePeriod = periodIdParam ? allPeriods.find((p) => p.id === periodIdParam) : undefined;
     if (activePeriod) {
+      inPeriodMode = true;
+      periodStatus = activePeriod.status;
       range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
-      openingBalance = activePeriod.openingBalance;
       scopeLabel = activePeriod.label;
       usingDateRange = false;
     } else {
@@ -67,10 +85,7 @@ export default async function CashFlowPage({
       if (fromParam || toParam) scopeLabel = `${fromParam || "start"} to ${toParam || "latest"}`;
     }
 
-    const nodes = await listCashFlowNodes(companyId);
-    hasStructure = nodes.some((n) => n.kind === "section");
     const txns = await listCashFlowTransactions(companyId, range);
-
     const statement = buildCashFlowTree(nodes, txns);
     sections = statement.sections;
     net = statement.net;
@@ -89,9 +104,35 @@ export default async function CashFlowPage({
       classDirection: t.classId ? dirById.get(t.classId) ?? null : null,
     }));
     coverage = summarizeCashFlowCoverage(facts);
+
+    if (activePeriod) {
+      // Carried opening candidate = the previous period's closing, computed live
+      // (prev opening + prev net). Only knowable when the previous period itself
+      // has an opening balance; otherwise no candidate (never invented).
+      const { previous } = adjacentPeriods(allPeriods, activePeriod.id);
+      let previousClosing: number | null = null;
+      if (previous && previous.openingBalance !== null) {
+        const prevTxns = await listCashFlowTransactions(companyId, {
+          dateFrom: previous.dateFrom,
+          dateTo: previous.dateTo,
+        });
+        const prevNet = buildCashFlowTree(nodes, prevTxns).net;
+        previousClosing = computeClosingBalance(previous.openingBalance, prevNet);
+      }
+      opening = resolveOpeningBalance({
+        openingBalance: activePeriod.openingBalance,
+        openingBalanceSource: activePeriod.openingBalanceSource,
+        previousClosing,
+      });
+
+      // YTD: net from the fiscal year start through the selected period.
+      const yr = ytdDateRange(activePeriod.year, activePeriod.month);
+      const ytdTxns = await listCashFlowTransactions(companyId, { dateFrom: yr.dateFrom, dateTo: yr.dateTo });
+      ytd = { label: yr.label, net: buildCashFlowTree(nodes, ytdTxns).net };
+    }
   }
 
-  const closing = computeClosingBalance(openingBalance, net);
+  const closing = computeClosingBalance(opening.value, net);
   const exclusionsTotal = coverage.unclassified + coverage.fxPending + coverage.excluded;
 
   return (
@@ -108,11 +149,18 @@ export default async function CashFlowPage({
           current={{ from: fromParam, to: toParam, periodId: periodIdParam }}
         />
 
-        <div className={styles.rangeHint}>
-          Scope: {scopeLabel}
-          {usingDateRange && periods.length === 0
-            ? " (no accounting periods yet - generating directly from transactions)"
-            : ""}
+        <div className={styles.scopeRow}>
+          <span className={styles.rangeHint}>
+            Scope: {scopeLabel}
+            {usingDateRange && periods.length === 0
+              ? " (no accounting periods yet - generating directly from transactions)"
+              : ""}
+          </span>
+          {inPeriodMode && periodStatus && (
+            <span className={styles.periodBadge} data-locked={isLockedOrClosed(periodStatus)}>
+              {PERIOD_STATUS_LABEL[periodStatus]}
+            </span>
+          )}
         </div>
 
         <div className={styles.coverage}>
@@ -200,20 +248,38 @@ export default async function CashFlowPage({
                   <span>Net Cash Flow</span>
                   <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
                 </div>
+                {ytd && (
+                  <div className={styles.ytdLine}>
+                    <span>{ytd.label}</span>
+                    <span className={styles.num} data-negative={ytd.net < 0}>{fmt(ytd.net)}</span>
+                  </div>
+                )}
               </div>
 
               <div className={styles.balanceCard}>
                 <div className={styles.balanceTitle}>Cash Balance</div>
-                {openingBalance === null ? (
-                  <div className={styles.balancePlaceholder}>
-                    Opening balance is not set for this period.
+
+                {opening.value !== null ? (
+                  <div className={styles.totalLine}>
+                    <span>
+                      Opening Cash Balance
+                      <span className={styles.srcTag}>{OPENING_STATE_LABEL[opening.state]}</span>
+                    </span>
+                    <span className={styles.num} data-negative={opening.value < 0}>{fmt(opening.value)}</span>
                   </div>
                 ) : (
-                  <div className={styles.totalLine}>
-                    <span>Opening Cash Balance</span>
-                    <span className={styles.num} data-negative={openingBalance < 0}>{fmt(openingBalance)}</span>
+                  <div className={styles.balancePlaceholder}>
+                    Opening balance is not set for this period.
+                    {opening.state === "carried-candidate" && opening.candidate !== null && (
+                      <div className={styles.carriedNote}>
+                        Carried opening available from the previous period:{" "}
+                        <strong>{fmt(opening.candidate)}</strong>. Applying it is a controlled action
+                        (deferred to Phase 4C).
+                      </div>
+                    )}
                   </div>
                 )}
+
                 <div className={styles.totalLine}>
                   <span>Net Cash Flow</span>
                   <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>

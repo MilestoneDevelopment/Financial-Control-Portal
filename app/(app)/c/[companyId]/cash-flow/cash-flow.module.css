@@ -82,6 +82,28 @@
   color: var(--fcp-gray-500);
 }
 
+/* ---- Scope row + period state ---- */
+.scopeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.periodBadge {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 5px;
+  padding: 2px 8px;
+  background: var(--fcp-favorable-bg);
+  color: var(--fcp-favorable);
+}
+.periodBadge[data-locked="true"] {
+  background: var(--fcp-warning-bg);
+  color: var(--fcp-warning);
+}
+
 /* ---- Coverage cards ---- */
 .coverage {
   display: flex;
@@ -272,6 +294,44 @@
   font-weight: 700;
   color: var(--fcp-ink);
   font-size: 13.5px;
+}
+.ytdLine {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  font-size: 11.5px;
+  color: var(--fcp-gray-500);
+  margin-top: 2px;
+}
+.ytdLine .num {
+  font-family: var(--fcp-font-num);
+  font-variant-numeric: tabular-nums;
+}
+.ytdLine .num[data-negative="true"] {
+  color: var(--fcp-unfavorable);
+}
+.srcTag {
+  margin-left: 7px;
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+  padding: 1px 5px;
+  background: var(--fcp-surface-3);
+  color: var(--fcp-gray-500);
+}
+.carriedNote {
+  margin-top: 7px;
+  font-size: 11.5px;
+  font-weight: 400;
+  color: var(--fcp-gray-600);
+  line-height: 1.45;
+}
+.carriedNote strong {
+  font-family: var(--fcp-font-num);
+  color: var(--fcp-ink);
 }
 .balancePlaceholder {
   font-size: 12px;
