@@ -42,6 +42,9 @@ reports, or cash-flow engine.
   SELECT on all 14 tables; INSERT/UPDATE on `companies`/`periods`/`cf_nodes`; INSERT on
   `cf_structure_versions` and (append-only) `audit_log`; own-row INSERT/UPDATE on `profiles`. No grants
   to `anon`; no direct DML to `service_role`; RLS remains the row-level gate.
+- `0006_audit_actor_default.sql` — `audit_log.actor` defaults to `auth.uid()` so authenticated server
+  actions capture the acting user automatically (it was NULL — no default and `lib/audit.ts` never set
+  it). Future inserts only; historical rows unchanged; append-only RLS and prior hardening untouched.
 
 ## Validation
 
