@@ -155,7 +155,7 @@ export function classifyTransaction(tx: ClassifiableTx, rules: ClassRule[]): Cla
       classId: null,
       matchedRuleId: null,
       confidence: null,
-      reason: `Conflicting rules at priority ${best.priority} — needs review.`,
+      reason: `Conflicting rules at priority ${best.priority} - needs review.`,
     };
   }
   return {

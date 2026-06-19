@@ -150,7 +150,7 @@ export async function parseAccountingFileAction(fileId: string): Promise<void> {
 
   try {
     if (file.original_filename.toLowerCase().endsWith(".xls")) {
-      throw new Error("Legacy .xls is not supported — please re-save as .xlsx.");
+      throw new Error("Legacy .xls is not supported - please re-save as .xlsx.");
     }
 
     const { data: blob, error: dlErr } = await supabase.storage

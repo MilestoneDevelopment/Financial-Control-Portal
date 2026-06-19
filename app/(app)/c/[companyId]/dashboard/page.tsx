@@ -47,7 +47,7 @@ export default async function DashboardPage({
     <>
       <TopBar
         title="Dashboard"
-        subtitle="Company overview — period lifecycle (KPIs & charts arrive in Phase 6)"
+        subtitle="Company overview - period lifecycle (KPIs & charts arrive in Phase 6)"
       />
       <div className={styles.pageBody}>
         <PeriodsPanel companyId={companyId} periods={periods} caps={caps} />

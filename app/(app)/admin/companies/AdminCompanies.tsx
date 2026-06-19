@@ -70,7 +70,7 @@ export function AdminCompanies({
             {companies.map((c) => (
               <tr key={c.id}>
                 <td className={styles.name}>{c.name}</td>
-                <td className={styles.muted}>{c.short_code ?? "—"}</td>
+                <td className={styles.muted}>{c.short_code ?? "-"}</td>
                 <td>
                   <select
                     className={styles.select}
@@ -168,7 +168,7 @@ export function AdminCompanies({
       )}
 
       {!canManage && !canAdd && (
-        <div className={styles.readonly}>Read-only — company management requires Admin access.</div>
+        <div className={styles.readonly}>Read-only - company management requires Admin access.</div>
       )}
     </div>
   );

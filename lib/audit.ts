@@ -31,6 +31,6 @@ export async function logAudit(
     details: (entry.details ?? {}) as Database["public"]["Tables"]["audit_log"]["Insert"]["details"],
     severity: entry.severity ?? "ok",
   });
-  // Audit failures must never silently pass — surface them to the caller.
+  // Audit failures must never silently pass - surface them to the caller.
   if (error) throw new Error(`audit_log insert failed: ${error.message}`);
 }

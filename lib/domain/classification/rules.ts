@@ -54,6 +54,34 @@ export function defaultsForRuleType(t: RuleType): { priority: number; confidence
   return RULE_TYPE_DEFAULTS[t];
 }
 
+export interface SelectOption {
+  value: number;
+  label: string;
+}
+
+/** Business-friendly priority presets (stored numeric values unchanged). */
+export const PRIORITY_OPTIONS: SelectOption[] = [
+  { value: 10, label: "10 - Very specific / highest priority" },
+  { value: 50, label: "50 - Strong account-pair rule" },
+  { value: 80, label: "80 - Strong combined rule" },
+  { value: 100, label: "100 - Normal account rule" },
+  { value: 300, label: "300 - Description-based rule" },
+  { value: 500, label: "500 - Amount / direction rule" },
+  { value: 900, label: "900 - Broad fallback" },
+  { value: 999, label: "999 - Last fallback / test rule" },
+];
+
+/** Business-friendly confidence presets shown as % (stored decimals unchanged). */
+export const CONFIDENCE_OPTIONS: SelectOption[] = [
+  { value: 1.0, label: "100% - Manual / certain" },
+  { value: 0.95, label: "95% - Strong account pair" },
+  { value: 0.9, label: "90% - Strong combined rule" },
+  { value: 0.8, label: "80% - Single account rule" },
+  { value: 0.75, label: "75% - Description-based rule" },
+  { value: 0.7, label: "70% - Advanced text pattern" },
+  { value: 0.6, label: "60% - Weak / review recommended" },
+];
+
 function trimOrNull(v: string | null | undefined): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();

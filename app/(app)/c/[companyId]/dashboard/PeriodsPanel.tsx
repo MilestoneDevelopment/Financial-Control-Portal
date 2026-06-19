@@ -157,10 +157,10 @@ function PeriodRow({
           </span>
         )}
         <span className={styles.balances} data-num>
-          Open {period.opening_balance == null ? "—" : formatAmount(period.opening_balance)}
+          Open {period.opening_balance == null ? "-" : formatAmount(period.opening_balance)}
           {period.opening_balance_source ? ` (${period.opening_balance_source})` : ""}
           {" · "}
-          Close {period.closing_balance == null ? "—" : formatAmount(period.closing_balance)}
+          Close {period.closing_balance == null ? "-" : formatAmount(period.closing_balance)}
         </span>
       </div>
 

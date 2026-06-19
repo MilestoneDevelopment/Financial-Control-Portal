@@ -1,6 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateRuleInput, defaultsForRuleType, RULE_TYPE_DEFAULTS, type RuleInput } from "./rules.ts";
+import {
+  validateRuleInput,
+  defaultsForRuleType,
+  RULE_TYPE_DEFAULTS,
+  PRIORITY_OPTIONS,
+  CONFIDENCE_OPTIONS,
+  type RuleInput,
+} from "./rules.ts";
 
 function base(p: Partial<RuleInput>): RuleInput {
   return {
@@ -95,5 +102,15 @@ test("defaultsForRuleType: sensible per-type priority/confidence", () => {
     const d = RULE_TYPE_DEFAULTS[t];
     assert.ok(d.confidence >= 0 && d.confidence <= 1);
     assert.ok(Number.isInteger(d.priority));
+  }
+});
+
+test("every rule-type default is selectable in the priority/confidence dropdowns", () => {
+  const prio = new Set(PRIORITY_OPTIONS.map((o) => o.value));
+  const conf = new Set(CONFIDENCE_OPTIONS.map((o) => o.value));
+  for (const t of Object.keys(RULE_TYPE_DEFAULTS) as (keyof typeof RULE_TYPE_DEFAULTS)[]) {
+    const d = RULE_TYPE_DEFAULTS[t];
+    assert.ok(prio.has(d.priority), `priority ${d.priority} (${t}) missing from PRIORITY_OPTIONS`);
+    assert.ok(conf.has(d.confidence), `confidence ${d.confidence} (${t}) missing from CONFIDENCE_OPTIONS`);
   }
 });

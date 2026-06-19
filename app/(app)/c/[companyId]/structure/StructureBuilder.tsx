@@ -171,7 +171,7 @@ export function StructureBuilder({
       </div>
 
       {!canEdit && (
-        <div className={styles.readonly}>Read-only — you do not have the “Edit cash flow structure” permission.</div>
+        <div className={styles.readonly}>Read-only - you do not have the “Edit cash flow structure” permission.</div>
       )}
     </div>
   );

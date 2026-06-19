@@ -75,7 +75,7 @@ export function ClassificationClient({
   const [optSuggested, setOptSuggested] = useState(true);
   const [optOverwrite, setOptOverwrite] = useState(false);
 
-  const classLabel = (id: string | null) => classes.find((c) => c.id === id)?.label ?? "—";
+  const classLabel = (id: string | null) => classes.find((c) => c.id === id)?.label ?? "-";
 
   function run(label: string, fn: () => Promise<void>, okMsg: string) {
     setError(null);
@@ -247,12 +247,12 @@ export function ClassificationClient({
                   {canAssign && (
                     <td><input type="checkbox" checked={selected.has(r.id)} onChange={() => toggle(r.id)} /></td>
                   )}
-                  <td>{r.date ?? "—"}</td>
-                  <td className={styles.desc}>{r.description ?? "—"}</td>
-                  <td>{r.debit ?? "—"}</td>
-                  <td>{r.credit ?? "—"}</td>
-                  <td>{r.amount !== null ? `${formatAmount(r.amount, { decimals: 2 })} ${r.currency ?? ""}` : "—"}</td>
-                  <td>{r.amountGel !== null ? formatAmount(r.amountGel, { decimals: 2 }) : "—"}</td>
+                  <td>{r.date ?? "-"}</td>
+                  <td className={styles.desc}>{r.description ?? "-"}</td>
+                  <td>{r.debit ?? "-"}</td>
+                  <td>{r.credit ?? "-"}</td>
+                  <td>{r.amount !== null ? `${formatAmount(r.amount, { decimals: 2 })} ${r.currency ?? ""}` : "-"}</td>
+                  <td>{r.amountGel !== null ? formatAmount(r.amountGel, { decimals: 2 }) : "-"}</td>
                   <td>
                     <span className={styles.statusBadge} data-status={r.status}>{STATUS_LABEL[r.status]}</span>
                     {r.source === "manual" && <span className={styles.manualTag}>manual</span>}
@@ -268,7 +268,7 @@ export function ClassificationClient({
                           if (classId) run("Assign", () => assignClassAction({ companyId, transactionId: r.id, classId }), "Class assigned.");
                         }}
                       >
-                        <option value="">{classLabel(r.classId) === "—" ? "Unassigned" : classLabel(r.classId)}</option>
+                        <option value="">{classLabel(r.classId) === "-" ? "Unassigned" : classLabel(r.classId)}</option>
                         {classes.map((c) => (
                           <option key={c.id} value={c.id}>{c.label}</option>
                         ))}

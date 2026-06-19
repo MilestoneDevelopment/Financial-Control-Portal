@@ -1,6 +1,6 @@
 # Phase 1 - Companies & Structure (foundation)
 
-Branch: `phase-1-companies-structure`. Foundation only — no Excel import, classification, forecast grid,
+Branch: `phase-1-companies-structure`. Foundation only - no Excel import, classification, forecast grid,
 reports, or cash-flow engine.
 
 ## Implemented
@@ -11,7 +11,7 @@ reports, or cash-flow engine.
   accessible companies (RLS-scoped); the sidebar **company switcher** is wired to real data and the active
   company is derived from the URL (`/c/[id]/…`). `c/[companyId]/layout` validates access (404 otherwise).
 - **Companies CRUD foundation** (`/admin/companies`): list, create, and edit **base currency** (GEL/USD/EUR,
-  default GEL), status, and portfolio inclusion — org-capability gated (`companies.add`/`companies.manage`),
+  default GEL), status, and portfolio inclusion - org-capability gated (`companies.add`/`companies.manage`),
   audited.
 - **Versioned Structure Builder** (`/c/[id]/structure`): initialize v1 active version; add/edit/deactivate
   sections, groups and classes; per-class cash direction; live validation scaffolding (empty containers,
@@ -32,24 +32,24 @@ reports, or cash-flow engine.
 
 ## Migrations
 
-- `0003_cf_nodes.sql` — applied to `financial-control-portal` (`vcaobnrunyfazrxusluh`). Verified: table +
+- `0003_cf_nodes.sql` - applied to `financial-control-portal` (`vcaobnrunyfazrxusluh`). Verified: table +
   RLS + 2 policies + 4 indexes + 2 enums; 0 rows (no demo data). `db/types.ts` regenerated.
-- `0004_provision_org.sql` — `provision_org(text, uuid)` SECURITY DEFINER (owner `postgres`,
+- `0004_provision_org.sql` - `provision_org(text, uuid)` SECURITY DEFINER (owner `postgres`,
   `search_path=public`), EXECUTE granted only to `service_role`. Creates an org and calls
   `seed_org_defaults` in one trusted call so `service_role` needs no direct table DML.
-- `0005_api_grants.sql` — restores base-table privileges for the `authenticated` role (the hardened
+- `0005_api_grants.sql` - restores base-table privileges for the `authenticated` role (the hardened
   template had stripped them, so RLS-protected reads/writes failed with "permission denied for table").
   SELECT on all 14 tables; INSERT/UPDATE on `companies`/`periods`/`cf_nodes`; INSERT on
   `cf_structure_versions` and (append-only) `audit_log`; own-row INSERT/UPDATE on `profiles`. No grants
   to `anon`; no direct DML to `service_role`; RLS remains the row-level gate.
-- `0006_audit_actor_default.sql` — `audit_log.actor` defaults to `auth.uid()` so authenticated server
-  actions capture the acting user automatically (it was NULL — no default and `lib/audit.ts` never set
+- `0006_audit_actor_default.sql` - `audit_log.actor` defaults to `auth.uid()` so authenticated server
+  actions capture the acting user automatically (it was NULL - no default and `lib/audit.ts` never set
   it). Future inserts only; historical rows unchanged; append-only RLS and prior hardening untouched.
 
 ## Validation
 
 - `npm test` → 18/18 pass · `npm run typecheck` → clean · `npm run build` → success (15 routes).
-- Supabase security advisor: 14 warnings (unchanged) — the six `auth_*` RLS helpers + the pre-existing
+- Supabase security advisor: 14 warnings (unchanged) - the six `auth_*` RLS helpers + the pre-existing
   `rls_auto_enable`; the 0002 hardening on `seed_org_defaults`/`handle_new_user` remains intact.
 - Note: `@supabase/supabase-js` and `@supabase/ssr` upgraded to current 2.x to match the new typegen format.
 
@@ -58,12 +58,12 @@ reports, or cash-flow engine.
 - Structure editing applies directly to the single active version; full **copy-on-edit draft branching** (so a
   structure change never mutates a version a closed period pinned) is deferred. Periods do pin the active
   version at creation, which is the durable hook for it.
-- Period management UI lives on the Dashboard (no charts/KPIs yet — Phase 6). No dedicated Periods nav item.
+- Period management UI lives on the Dashboard (no charts/KPIs yet - Phase 6). No dedicated Periods nav item.
 - No realtime collaboration; last-write-wins with audit history.
-- Provisioning is a CLI script (no admin UI for creating orgs / inviting users — Phase 8).
+- Provisioning is a CLI script (no admin UI for creating orgs / inviting users - Phase 8).
 
 ## Recommended Phase 2
 
-Accounting Excel upload + transactions + classification engine (rule-based, Georgian-aware) — uploads write
+Accounting Excel upload + transactions + classification engine (rule-based, Georgian-aware) - uploads write
 into a draft/active period (gated by `requirePeriodMutable`), classification produces the data the cash-flow
 engine consumes in Phase 3.

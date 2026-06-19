@@ -3,7 +3,7 @@
 Branch: `phase-2b-xlsx-parser-transactions` (off `phase-2a-...`). Scope: parse an
 uploaded accounting `.xlsx` from private Storage and import its rows into
 `transactions`. **No** classification engine, cash-flow generation, reports/export,
-or forecast/budget. **No schema migration** — the Phase 2A `0007` schema already
+or forecast/budget. **No schema migration** - the Phase 2A `0007` schema already
 supports import (existing grants cover INSERT into transactions/issues + UPDATE on
 accounting_files).
 
@@ -18,7 +18,7 @@ accounting_files).
 - **Pure import core** (`lib/domain/upload/import.ts`, tested): maps headers via the
   Phase 2A column contract, validates required columns, normalizes each row, raises
   per-row / file-level issues, computes detected period range and validation status.
-  Never invents values — missing/ambiguous fields produce an issue + preserved
+  Never invents values - missing/ambiguous fields produce an issue + preserved
   `raw_row_json`.
 - **Parsing helpers** (`lib/domain/upload/parse.ts`): added `parseAccountingDate`
   (ISO, dd/mm & dd.mm European/Georgian, JS Date, Excel serial) and `parseCurrency`
@@ -58,12 +58,12 @@ warnings only → `warnings`; none → `passed`.
 
 ## Known limitations
 
-- `.xls` (legacy binary) not supported — re-save as `.xlsx` (a clear error is shown).
-- No NBG FX resolution yet (only in-file rates) — Phase 2C.
+- `.xls` (legacy binary) not supported - re-save as `.xlsx` (a clear error is shown).
+- No NBG FX resolution yet (only in-file rates) - Phase 2C.
 - No file remove/replace/supersede yet (needs `upload.remove` + storage delete
   policy + DELETE grant).
 - Re-parse of a `failed` file may duplicate advisory issue rows (transactions never
-  duplicate — atomic insert + the `imported` guard). A clean re-import would need a
+  duplicate - atomic insert + the `imported` guard). A clean re-import would need a
   DELETE grant (deferred).
 - amount_gel is only set for base-currency or in-file-rate rows; debit/credit
   semantics for the cash-flow engine are Phase 3.

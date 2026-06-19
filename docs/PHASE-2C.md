@@ -13,7 +13,7 @@ forecast.
   `storage.objects` DELETE policy for `accounting-files` (company access +
   `upload.remove`), and a hardened `cache_fx_rate` SECURITY DEFINER function. No
   new tables. `db/types.ts` updated.
-- **FX resolution** — pure decision logic (`lib/domain/upload/fx-resolve.ts`) +
+- **FX resolution** - pure decision logic (`lib/domain/upload/fx-resolve.ts`) +
   NBG response parser (`lib/domain/upload/nbg.ts`), both tested; server-only NBG
   fetch (`lib/server/nbg.ts`, uses `NBG_FX_ENDPOINT`, best-effort, never client);
   `resolveFxForFileAction` orchestrates the priority chain and persists results.
@@ -26,11 +26,11 @@ forecast.
 ## FX resolution behavior
 
 Priority per foreign-currency transaction (date D, currency C):
-1. **Imported in-file rate** — already `resolved` at import (2B); never overwritten.
-2. **`fx_rates` exact date** — existing cached/seeded rate for (C, D).
-3. **NBG exact** — fetch `NBG_FX_ENDPOINT?date=D`; cache via `cache_fx_rate`
+1. **Imported in-file rate** - already `resolved` at import (2B); never overwritten.
+2. **`fx_rates` exact date** - existing cached/seeded rate for (C, D).
+3. **NBG exact** - fetch `NBG_FX_ENDPOINT?date=D`; cache via `cache_fx_rate`
    (`source = nbg`). Per-unit rate = `rate / quantity`.
-4. **Prior date** — NBG returning an earlier effective date, or the latest
+4. **Prior date** - NBG returning an earlier effective date, or the latest
    `fx_rates` row before D → `source = nbg_prior_filled`.
 5. **Unresolved** → stays `pending` + `MISSING_FX` issue.
 
@@ -60,7 +60,7 @@ storage accounting_files_delete). `authenticated` gained UPDATE on transactions 
 DELETE on accounting_files (RLS-gated). `service_role` table DML still NONE; bucket
 still private; `cache_fx_rate` EXECUTE = authenticated/postgres only (no anon).
 Security advisor: one new **expected** WARN (`cache_fx_rate` executable by
-signed-in users — intentional, same class as the `auth_*` helpers); no ERROR/
+signed-in users - intentional, same class as the `auth_*` helpers); no ERROR/
 critical, no new anon exposure.
 
 ## Known limitations

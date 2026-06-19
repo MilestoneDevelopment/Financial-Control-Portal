@@ -76,7 +76,7 @@ baseline (no new warnings, no ERROR/critical).
 - Rule management is via "save rule" from a row only (account-pair); a full rule
   editor/CRUD UI is deferred.
 - `description_regex` uses user-supplied patterns (case-insensitive, try/caught);
-  no ReDoS guard yet — acceptable for trusted internal users.
+  no ReDoS guard yet - acceptable for trusted internal users.
 - No re-run/overwrite of manual classifications by design.
 - The sample company has a single class node, so multi-class conflict scenarios
   are covered by unit tests rather than live data.

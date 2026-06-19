@@ -19,13 +19,15 @@ export interface UploadIssue {
 /**
  * Parse an accounting-formatted number into a JS number, or null if blank/invalid.
  * Handles: thousands separators, currency symbols, surrounding spaces, a leading
- * minus, and accounting parentheses for negatives — e.g. "(1,250.50)" -> -1250.5.
+ * minus, and accounting parentheses for negatives - e.g. "(1,250.50)" -> -1250.5.
  */
 export function parseAccountingNumber(input: unknown): number | null {
   if (input === null || input === undefined) return null;
   if (typeof input === "number") return Number.isFinite(input) ? input : null;
 
   let s = String(input).trim();
+  // Blank-cell sentinels seen in real accounting exports. The em/en dashes here
+  // match INPUT data (not UI copy) - intentionally kept despite the no-long-dash rule.
   if (s === "" || s === "-" || s === "—" || s === "–") return null;
 
   // Accounting parentheses => negative.

@@ -2,7 +2,7 @@
 
 Branch: `phase-2a-accounting-upload-foundation`. Scope: the storage + schema + UI
 foundation for importing accounting Excel exports. **No** full cash-flow engine,
-reports/export, forecast/budget, or fuzzy classification — those are later phases.
+reports/export, forecast/budget, or fuzzy classification - those are later phases.
 XLSX parsing into transactions is intentionally deferred to Phase 2B.
 
 ## Implemented
@@ -11,22 +11,22 @@ XLSX parsing into transactions is intentionally deferred to Phase 2B.
   enums + indexes + RLS + storage bucket/policies (see below). Applied + verified
   on `financial-control-portal`. `db/types.ts` regenerated.
 - **Schema**
-  - `accounting_files` — one uploaded file = one import batch (1:1 for now).
+  - `accounting_files` - one uploaded file = one import batch (1:1 for now).
     Tracks storage path, original filename, size, selected/detected period range,
     `import_status`, `validation_status`, supersede chain, correction flag.
-  - `transactions` — normalized rows: dates, document/reference/description/
+  - `transactions` - normalized rows: dates, document/reference/description/
     comment, debit/credit accounts + amounts, original amount/currency, FX fields
     (`fx_rate_to_gel`, `fx_rate_source`, `fx_rate_date`, `fx_status`), `amount_gel`,
     `classification_status`, nullable `class_id`, and `raw_row_json` for traceability.
-  - `accounting_file_issues` — per-file / per-row validation & review items.
+  - `accounting_file_issues` - per-file / per-row validation & review items.
 - **Security** (unchanged posture): RLS enabled on all three tables; reads scoped
   via `auth_company_ids()`; writes gated by the EXISTING `upload.file` capability
-  (seeded in 0001 — no new capabilities). `authenticated` granted only
+  (seeded in 0001 - no new capabilities). `authenticated` granted only
   SELECT/INSERT (+ UPDATE on `accounting_files`); no `anon` grants; no
   `service_role` DML; no DELETE yet (file removal lands with `upload.remove`).
 - **Storage**: private bucket `accounting-files` (never public). Path convention
-  `{company_id}/{file_uuid}/{original_filename}`. Two `storage.objects` policies —
-  read requires company access; upload additionally requires `upload.file` — both
+  `{company_id}/{file_uuid}/{original_filename}`. Two `storage.objects` policies -
+  read requires company access; upload additionally requires `upload.file` - both
   parse the company id from the first path segment.
 - **Upload UI** (`/c/[companyId]/upload`): period selector (locked/closed periods
   disabled unless Correction Mode), Excel file picker, upload to Storage + create
@@ -38,12 +38,12 @@ XLSX parsing into transactions is intentionally deferred to Phase 2B.
   object if the insert fails), and audits `accounting.file.uploaded`
   (actor captured automatically via migration 0006).
 - **Domain logic + tests** (`lib/domain/upload/*`, pure/testable):
-  - `status.ts` — import-status transitions, in-progress check, validation-status
+  - `status.ts` - import-status transitions, in-progress check, validation-status
     derivation from issues.
-  - `parse.ts` — `parseAccountingNumber` (parentheses-negative, thousands, symbols),
+  - `parse.ts` - `parseAccountingNumber` (parentheses-negative, thousands, symbols),
     `classifyFxStatus`, `dateWithinSelected`, `detectPeriodMismatch`,
     `validateUploadFile`, `hasBlockingIssue`.
-  - `columns.ts` — the expected Excel column contract (`EXPECTED_COLUMNS`,
+  - `columns.ts` - the expected Excel column contract (`EXPECTED_COLUMNS`,
     EN + Georgian header aliases) and the `TransactionDraft` shape the Phase 2B
     parser will emit. Header matching via `matchHeader`.
 

@@ -50,7 +50,7 @@ export interface FileRow {
 }
 
 function formatBytes(n: number | null): string {
-  if (n === null || n <= 0) return "—";
+  if (n === null || n <= 0) return "-";
   if (n < 1024) return `${n} B`;
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
   return `${(n / (1024 * 1024)).toFixed(1)} MB`;
@@ -157,7 +157,7 @@ export function UploadClient({
               {periods.map((p) => (
                 <option key={p.id} value={p.id} disabled={!p.mutable}>
                   {p.label}
-                  {!p.mutable ? " — locked (Correction Mode required)" : ""}
+                  {!p.mutable ? " - locked (Correction Mode required)" : ""}
                 </option>
               ))}
             </select>
@@ -212,11 +212,11 @@ export function UploadClient({
                 const parseable = f.importStatus === "uploaded" || f.importStatus === "failed";
                 const canResolveFx = f.importStatus === "imported" && f.fxPending > 0;
                 const detected =
-                  f.detectedStart && f.detectedEnd ? `${f.detectedStart} → ${f.detectedEnd}` : "—";
+                  f.detectedStart && f.detectedEnd ? `${f.detectedStart} → ${f.detectedEnd}` : "-";
                 const rowBusy = busyId === f.id;
                 const fxLabel =
                   f.fxPending + f.fxResolved === 0
-                    ? "—"
+                    ? "-"
                     : `${f.fxResolved} ok${f.fxPending > 0 ? ` · ${f.fxPending} pending` : ""}`;
                 return (
                   <Fragment key={f.id}>
@@ -229,7 +229,7 @@ export function UploadClient({
                       <td>{formatBytes(f.size)}</td>
                       <td>{IMPORT_STATUS_LABEL[f.importStatus]}</td>
                       <td>{VALIDATION_STATUS_LABEL[f.validationStatus]}</td>
-                      <td>{f.rowCount ?? "—"}</td>
+                      <td>{f.rowCount ?? "-"}</td>
                       <td>{fxLabel}</td>
                       <td>{detected}</td>
                       <td>
@@ -240,11 +240,11 @@ export function UploadClient({
                             onClick={() => setOpenIssues(openIssues === f.id ? null : f.id)}
                           >
                             {activeIssues.length}
-                            {resolvedIssues.length > 0 ? ` (+${resolvedIssues.length})` : ""}{" "}
+                            {resolvedIssues.length > 0 ? ` [ +${resolvedIssues.length} ]` : ""}{" "}
                             {openIssues === f.id ? "▲" : "▼"}
                           </button>
                         ) : (
-                          "—"
+                          "-"
                         )}
                       </td>
                       <td>

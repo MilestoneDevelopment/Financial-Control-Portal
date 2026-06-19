@@ -13,15 +13,15 @@ already covers it); all changes are app/logic-level. No cash-flow/reports/foreca
 - **Create/edit form**: account_pair, account_exact, description_contains,
   description_regex, amount_direction, combined; class/type/priority/confidence +
   account/description/currency/amount/direction fields. Validated by the pure
-  `validateRuleInput` (required fields per type, confidence 0–1, integer priority,
+  `validateRuleInput` (required fields per type, confidence 0-1, integer priority,
   trimmed patterns, regex validity, min≤max, **broad/empty rules rejected**).
 - **Match preview** (`previewRuleAction`, read-only): shows which current
-  unresolved transactions a (possibly unsaved) rule would match — date, description,
+  unresolved transactions a (possibly unsaved) rule would match - date, description,
   Dr/Cr, amount, status, and a match flag. Mutates nothing; company-scoped; defaults
   to unclassified/suggested rows.
 - **Coverage summary** (top of the classification page): coverage %, total, manual,
   by-rule, needs-review, unclassified, FX pending, active rules, and top unmatched
-  account pairs — pure `summarizeCoverage` / `topUnmatchedPairs`.
+  account pairs - pure `summarizeCoverage` / `topUnmatchedPairs`.
 - **Safer re-run controls**: checkboxes for Unclassified / Needs review / Overwrite
   rule-based; **manual classifications are never overwritten** (enforced by the
   source filter, not just the UI); a confirm dialog guards the overwrite option;

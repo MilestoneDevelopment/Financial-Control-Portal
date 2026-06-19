@@ -62,8 +62,8 @@ export function topUnmatchedPairs(rows: PairFact[], limit = 5): UnmatchedPair[] 
   const map = new Map<string, UnmatchedPair>();
   for (const r of rows) {
     if (r.status !== "unclassified" && r.status !== "suggested") continue;
-    const debit = r.debit ?? "—";
-    const credit = r.credit ?? "—";
+    const debit = r.debit ?? "-";
+    const credit = r.credit ?? "-";
     const pair = `${debit} / ${credit}`;
     const cur = map.get(pair);
     if (cur) cur.count += 1;
