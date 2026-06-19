@@ -1,5 +1,5 @@
 /**
- * Supabase database types - generated from the live schema (migration 0001).
+ * Supabase database types - generated from the live schema (through migration 0007).
  * Regenerate after schema changes:
  *   supabase gen types typescript --linked > db/types.ts
  * (or via the MCP `generate_typescript_types` tool). Do not edit by hand.
@@ -20,6 +20,152 @@ export type Database = {
   }
   public: {
     Tables: {
+      accounting_file_issues: {
+        Row: {
+          code: string
+          company_id: string
+          created_at: string
+          details: Json
+          file_id: string
+          id: string
+          message: string
+          row_index: number | null
+          severity: Database["public"]["Enums"]["upload_issue_severity"]
+        }
+        Insert: {
+          code: string
+          company_id: string
+          created_at?: string
+          details?: Json
+          file_id: string
+          id?: string
+          message: string
+          row_index?: number | null
+          severity?: Database["public"]["Enums"]["upload_issue_severity"]
+        }
+        Update: {
+          code?: string
+          company_id?: string
+          created_at?: string
+          details?: Json
+          file_id?: string
+          id?: string
+          message?: string
+          row_index?: number | null
+          severity?: Database["public"]["Enums"]["upload_issue_severity"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_file_issues_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_file_issues_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      accounting_files: {
+        Row: {
+          company_id: string
+          created_at: string
+          detected_period_end: string | null
+          detected_period_start: string | null
+          file_size: number | null
+          id: string
+          import_status: Database["public"]["Enums"]["import_status"]
+          is_correction_upload: boolean
+          is_superseded: boolean
+          original_filename: string
+          period_id: string | null
+          row_count: number | null
+          selected_period_end: string | null
+          selected_period_start: string | null
+          storage_path: string
+          supersedes_file_id: string | null
+          updated_at: string
+          uploaded_by: string | null
+          validation_status: Database["public"]["Enums"]["upload_validation_status"]
+        }
+        Insert: {
+          company_id: string
+          created_at?: string
+          detected_period_end?: string | null
+          detected_period_start?: string | null
+          file_size?: number | null
+          id?: string
+          import_status?: Database["public"]["Enums"]["import_status"]
+          is_correction_upload?: boolean
+          is_superseded?: boolean
+          original_filename: string
+          period_id?: string | null
+          row_count?: number | null
+          selected_period_end?: string | null
+          selected_period_start?: string | null
+          storage_path: string
+          supersedes_file_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          validation_status?: Database["public"]["Enums"]["upload_validation_status"]
+        }
+        Update: {
+          company_id?: string
+          created_at?: string
+          detected_period_end?: string | null
+          detected_period_start?: string | null
+          file_size?: number | null
+          id?: string
+          import_status?: Database["public"]["Enums"]["import_status"]
+          is_correction_upload?: boolean
+          is_superseded?: boolean
+          original_filename?: string
+          period_id?: string | null
+          row_count?: number | null
+          selected_period_end?: string | null
+          selected_period_start?: string | null
+          storage_path?: string
+          supersedes_file_id?: string | null
+          updated_at?: string
+          uploaded_by?: string | null
+          validation_status?: Database["public"]["Enums"]["upload_validation_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "accounting_files_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_files_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_files_supersedes_file_id_fkey"
+            columns: ["supersedes_file_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "accounting_files_uploaded_by_fkey"
+            columns: ["uploaded_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       audit_log: {
         Row: {
           action: string
@@ -656,6 +802,119 @@ export type Database = {
           },
         ]
       }
+      transactions: {
+        Row: {
+          amount_gel: number | null
+          class_id: string | null
+          classification_status: Database["public"]["Enums"]["tx_classification_status"]
+          comment: string | null
+          company_id: string
+          created_at: string
+          credit_account: string | null
+          credit_amount: number | null
+          debit_account: string | null
+          debit_amount: number | null
+          description: string | null
+          document_ref: string | null
+          file_id: string
+          fx_rate_date: string | null
+          fx_rate_source: Database["public"]["Enums"]["fx_rate_source"] | null
+          fx_rate_to_gel: number | null
+          fx_status: Database["public"]["Enums"]["fx_status"]
+          id: string
+          original_amount: number | null
+          original_currency: Database["public"]["Enums"]["currency"] | null
+          period_id: string | null
+          raw_row_json: Json
+          reference: string | null
+          row_index: number | null
+          transaction_date: string | null
+        }
+        Insert: {
+          amount_gel?: number | null
+          class_id?: string | null
+          classification_status?: Database["public"]["Enums"]["tx_classification_status"]
+          comment?: string | null
+          company_id: string
+          created_at?: string
+          credit_account?: string | null
+          credit_amount?: number | null
+          debit_account?: string | null
+          debit_amount?: number | null
+          description?: string | null
+          document_ref?: string | null
+          file_id: string
+          fx_rate_date?: string | null
+          fx_rate_source?: Database["public"]["Enums"]["fx_rate_source"] | null
+          fx_rate_to_gel?: number | null
+          fx_status?: Database["public"]["Enums"]["fx_status"]
+          id?: string
+          original_amount?: number | null
+          original_currency?: Database["public"]["Enums"]["currency"] | null
+          period_id?: string | null
+          raw_row_json?: Json
+          reference?: string | null
+          row_index?: number | null
+          transaction_date?: string | null
+        }
+        Update: {
+          amount_gel?: number | null
+          class_id?: string | null
+          classification_status?: Database["public"]["Enums"]["tx_classification_status"]
+          comment?: string | null
+          company_id?: string
+          created_at?: string
+          credit_account?: string | null
+          credit_amount?: number | null
+          debit_account?: string | null
+          debit_amount?: number | null
+          description?: string | null
+          document_ref?: string | null
+          file_id?: string
+          fx_rate_date?: string | null
+          fx_rate_source?: Database["public"]["Enums"]["fx_rate_source"] | null
+          fx_rate_to_gel?: number | null
+          fx_status?: Database["public"]["Enums"]["fx_status"]
+          id?: string
+          original_amount?: number | null
+          original_currency?: Database["public"]["Enums"]["currency"] | null
+          period_id?: string | null
+          raw_row_json?: Json
+          reference?: string | null
+          row_index?: number | null
+          transaction_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_class_id_fkey"
+            columns: ["class_id"]
+            isOneToOne: false
+            referencedRelation: "cf_nodes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_company_id_fkey"
+            columns: ["company_id"]
+            isOneToOne: false
+            referencedRelation: "companies"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "accounting_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_period_id_fkey"
+            columns: ["period_id"]
+            isOneToOne: false
+            referencedRelation: "periods"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -679,6 +938,10 @@ export type Database = {
           role_id: string
         }[]
       }
+      provision_org: {
+        Args: { p_name: string; p_owner: string }
+        Returns: string
+      }
       seed_org_defaults: {
         Args: { p_org: string; p_owner: string }
         Returns: undefined
@@ -691,10 +954,19 @@ export type Database = {
       company_status: "draft" | "active" | "archived"
       currency: "GEL" | "USD" | "EUR"
       fx_rate_source: "imported" | "nbg" | "nbg_prior_filled" | "manual"
+      fx_status: "not_required" | "pending" | "resolved" | "manual"
+      import_status: "uploaded" | "parsing" | "parsed" | "imported" | "failed"
       invitation_status: "pending" | "accepted" | "expired" | "cancelled"
       opening_balance_source: "carried" | "imported" | "manual"
       period_status: "draft" | "active" | "locked" | "closed" | "archived"
       structure_version_status: "draft" | "active" | "superseded"
+      tx_classification_status:
+        | "unclassified"
+        | "suggested"
+        | "confirmed"
+        | "rejected"
+      upload_issue_severity: "error" | "warning" | "info"
+      upload_validation_status: "pending" | "passed" | "warnings" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -828,10 +1100,20 @@ export const Constants = {
       company_status: ["draft", "active", "archived"],
       currency: ["GEL", "USD", "EUR"],
       fx_rate_source: ["imported", "nbg", "nbg_prior_filled", "manual"],
+      fx_status: ["not_required", "pending", "resolved", "manual"],
+      import_status: ["uploaded", "parsing", "parsed", "imported", "failed"],
       invitation_status: ["pending", "accepted", "expired", "cancelled"],
       opening_balance_source: ["carried", "imported", "manual"],
       period_status: ["draft", "active", "locked", "closed", "archived"],
       structure_version_status: ["draft", "active", "superseded"],
+      tx_classification_status: [
+        "unclassified",
+        "suggested",
+        "confirmed",
+        "rejected",
+      ],
+      upload_issue_severity: ["error", "warning", "info"],
+      upload_validation_status: ["pending", "passed", "warnings", "failed"],
     },
   },
 } as const
