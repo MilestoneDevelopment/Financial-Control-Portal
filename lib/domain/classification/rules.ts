@@ -35,6 +35,25 @@ const RULE_TYPES: RuleType[] = [
   "combined",
 ];
 
+/**
+ * Sensible default priority/confidence per rule type, so finance users don't have
+ * to reason about them. More specific rule types run earlier (lower priority) and
+ * carry higher confidence. Fields remain in the model/engine; users can override
+ * them under Advanced settings.
+ */
+export const RULE_TYPE_DEFAULTS: Record<RuleType, { priority: number; confidence: number }> = {
+  account_pair: { priority: 50, confidence: 0.95 },
+  combined: { priority: 80, confidence: 0.9 },
+  account_exact: { priority: 100, confidence: 0.8 },
+  description_contains: { priority: 300, confidence: 0.75 },
+  description_regex: { priority: 300, confidence: 0.7 },
+  amount_direction: { priority: 500, confidence: 0.6 },
+};
+
+export function defaultsForRuleType(t: RuleType): { priority: number; confidence: number } {
+  return RULE_TYPE_DEFAULTS[t];
+}
+
 function trimOrNull(v: string | null | undefined): string | null {
   if (v === null || v === undefined) return null;
   const s = String(v).trim();
@@ -46,7 +65,13 @@ function hasRealDirection(d: CashDirection | null): boolean {
   return d === "in" || d === "out";
 }
 
-export function validateRuleInput(raw: RuleInput): RuleValidation {
+export interface ValidateOptions {
+  /** Preview is read-only and may be unsaved, so it doesn't require a name. */
+  requireName?: boolean;
+}
+
+export function validateRuleInput(raw: RuleInput, opts: ValidateOptions = {}): RuleValidation {
+  const requireName = opts.requireName ?? true;
   const errors: string[] = [];
   const cleaned: RuleInput = {
     classId: (raw.classId ?? "").trim(),
@@ -65,7 +90,7 @@ export function validateRuleInput(raw: RuleInput): RuleValidation {
   };
 
   if (!cleaned.classId) errors.push("A target class is required.");
-  if (!cleaned.name) errors.push("Rule name is required.");
+  if (requireName && !cleaned.name) errors.push("Rule name is required.");
   if (!RULE_TYPES.includes(cleaned.ruleType)) errors.push("Invalid rule type.");
   if (!Number.isInteger(cleaned.priority)) errors.push("Priority must be an integer.");
   if (!(cleaned.confidenceScore >= 0 && cleaned.confidenceScore <= 1)) {

@@ -290,6 +290,259 @@
 }
 .actions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
+}
+
+/* rules page polish */
+.rulesHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.rulesHeaderTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--fcp-ink);
+}
+.btnCompact {
+  align-self: flex-start;
+  width: fit-content;
+  border: none;
+  cursor: pointer;
+  background: var(--fcp-ink-strong);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  border-radius: var(--fcp-radius-control);
+  padding: 8px 14px;
+}
+.btnCompact:disabled {
+  background: #c4c8ce;
+  cursor: not-allowed;
+}
+.ruleFormCard {
+  background: var(--fcp-surface);
+  border: 1px solid var(--fcp-line);
+  border-radius: var(--fcp-radius-card);
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: 100%;
+}
+.ruleSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ruleSectionTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fcp-gray-500);
+}
+.ruleGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.checkInline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--fcp-gray-700);
+}
+.btnSmGhost {
+  border: 1px solid var(--fcp-line);
+  cursor: pointer;
+  background: #fff;
+  color: var(--fcp-gray-700);
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 4px 9px;
+}
+.btnSmGhost:hover {
+  background: var(--fcp-surface-3, #f7f8fa);
+}
+.btnSmDanger {
+  border: 1px solid #e3b4ac;
+  cursor: pointer;
+  background: #fff;
+  color: #c0493a;
+  font-size: 11px;
+  font-weight: 600;
+  border-radius: 6px;
+  padding: 4px 9px;
+}
+.previewEmpty {
+  padding: 14px 6px;
+  font-size: 13px;
+  color: var(--fcp-gray-500);
+}
+.previewNote {
+  font-size: 11.5px;
+  color: var(--fcp-gray-500);
+  background: var(--fcp-surface-3, #f7f8fa);
+  border: 1px solid var(--fcp-line);
+  border-radius: 6px;
+  padding: 6px 10px;
+  margin-bottom: 8px;
+}
+.fieldHint,
+.ruleField span.fieldHint,
+.activeRow span.fieldHint {
+  font-size: 10.5px;
+  font-weight: 400;
+  text-transform: none;
+  color: var(--fcp-gray-400);
+  line-height: 1.35;
+}
+.activeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--fcp-gray-700);
+  background: var(--fcp-surface-3, #f7f8fa);
+  border: 1px solid var(--fcp-line);
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.activeRow span {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.advancedToggle {
+  align-self: flex-start;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fcp-gray-500);
+}
+.advancedToggle:hover {
+  color: var(--fcp-ink);
+}
+
+/* Intentional 12-column form composition */
+.formGrid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px 16px;
+  align-items: start;
+}
+.col3 { grid-column: span 3; }
+.col4 { grid-column: span 4; }
+.col5 { grid-column: span 5; }
+.col6 { grid-column: span 6; }
+.col8 { grid-column: span 8; }
+@media (max-width: 1100px) {
+  .col3 { grid-column: span 4; }
+  .col4, .col5 { grid-column: span 6; }
+}
+@media (max-width: 680px) {
+  .formGrid > * { grid-column: 1 / -1; }
+}
+
+/* Rule type: normal width + inline explanation */
+.ruleTypeRow {
+  display: grid;
+  grid-template-columns: minmax(220px, 300px) 1fr;
+  gap: 16px;
+  align-items: center;
+}
+@media (max-width: 680px) {
+  .ruleTypeRow { grid-template-columns: 1fr; align-items: start; }
+}
+
+/* Min/Max grouped as one "Amount range" control */
+.amountRangeLabel {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--fcp-gray-600);
+}
+.amountRange {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+/* Active as a compact status toggle card */
+.activeCard {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--fcp-line);
+  border-radius: 10px;
+  padding: 10px 14px;
+  background: var(--fcp-surface-3, #f7f8fa);
+  align-self: end;
+}
+.toggle {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+  flex: none;
+}
+.toggleInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+.toggleSlider {
+  width: 38px;
+  height: 22px;
+  border-radius: 999px;
+  background: #c4c8ce;
+  transition: background 0.15s ease;
+  flex: none;
+  position: relative;
+}
+.toggleSlider::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  transition: transform 0.15s ease;
+}
+.toggleInput:checked + .toggleSlider {
+  background: var(--fcp-accent, #2f6fed);
+}
+.toggleInput:checked + .toggleSlider::after {
+  transform: translateX(16px);
+}
+.toggleInput:focus-visible + .toggleSlider {
+  outline: 2px solid var(--fcp-accent, #2f6fed);
+  outline-offset: 2px;
+}
+.activeText {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.activeText strong {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--fcp-ink);
+}
+.activeText small {
+  font-size: 10.5px;
+  color: var(--fcp-gray-500);
 }

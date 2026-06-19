@@ -395,7 +395,9 @@ export async function previewRuleAction(input: {
 }): Promise<PreviewRow[]> {
   const supabase = await createClient();
   await requireCapability(supabase, "classification.run", input.companyId);
-  const { ok, errors, cleaned } = validateRuleInput(input.rule);
+  // Preview is read-only and may be unsaved -> match conditions are validated, but
+  // a rule name is not required.
+  const { ok, errors, cleaned } = validateRuleInput(input.rule, { requireName: false });
   if (!ok) throw new Error(errors.join(" "));
 
   const candidate: ClassRule = {

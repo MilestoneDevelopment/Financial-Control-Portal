@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { validateRuleInput, type RuleInput } from "./rules.ts";
+import { validateRuleInput, defaultsForRuleType, RULE_TYPE_DEFAULTS, type RuleInput } from "./rules.ts";
 
 function base(p: Partial<RuleInput>): RuleInput {
   return {
@@ -33,9 +33,27 @@ test("account_pair requires both accounts", () => {
   assert.equal(r.ok, false);
 });
 
-test("missing class / name rejected", () => {
+test("missing class / name rejected (create/save default)", () => {
   assert.equal(validateRuleInput(base({ classId: "", debitAccountPattern: "1", creditAccountPattern: "2" })).ok, false);
   assert.equal(validateRuleInput(base({ name: "  ", debitAccountPattern: "1", creditAccountPattern: "2" })).ok, false);
+});
+
+test("preview mode does not require a name, but still validates conditions/class", () => {
+  // empty name OK in preview mode when the rest is valid
+  assert.equal(
+    validateRuleInput(base({ name: "", debitAccountPattern: "1210", creditAccountPattern: "6100" }), { requireName: false }).ok,
+    true,
+  );
+  // class still required even in preview
+  assert.equal(
+    validateRuleInput(base({ name: "", classId: "", debitAccountPattern: "1210", creditAccountPattern: "6100" }), { requireName: false }).ok,
+    false,
+  );
+  // match conditions still validated in preview (account_pair needs both)
+  assert.equal(
+    validateRuleInput(base({ name: "", debitAccountPattern: "1210", creditAccountPattern: null }), { requireName: false }).ok,
+    false,
+  );
 });
 
 test("confidence must be 0..1, priority integer", () => {
@@ -63,4 +81,19 @@ test("min cannot exceed max", () => {
 test("combined needs at least one condition", () => {
   assert.equal(validateRuleInput(base({ ruleType: "combined" })).ok, false);
   assert.equal(validateRuleInput(base({ ruleType: "combined", descriptionPattern: "fee" })).ok, true);
+});
+
+test("defaultsForRuleType: sensible per-type priority/confidence", () => {
+  assert.deepEqual(defaultsForRuleType("account_pair"), { priority: 50, confidence: 0.95 });
+  assert.deepEqual(defaultsForRuleType("combined"), { priority: 80, confidence: 0.9 });
+  assert.deepEqual(defaultsForRuleType("account_exact"), { priority: 100, confidence: 0.8 });
+  assert.deepEqual(defaultsForRuleType("description_contains"), { priority: 300, confidence: 0.75 });
+  assert.deepEqual(defaultsForRuleType("description_regex"), { priority: 300, confidence: 0.7 });
+  assert.deepEqual(defaultsForRuleType("amount_direction"), { priority: 500, confidence: 0.6 });
+  // every rule type has a default + valid confidence range
+  for (const t of Object.keys(RULE_TYPE_DEFAULTS) as (keyof typeof RULE_TYPE_DEFAULTS)[]) {
+    const d = RULE_TYPE_DEFAULTS[t];
+    assert.ok(d.confidence >= 0 && d.confidence <= 1);
+    assert.ok(Number.isInteger(d.priority));
+  }
 });
