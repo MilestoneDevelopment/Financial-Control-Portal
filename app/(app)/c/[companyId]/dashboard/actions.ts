@@ -12,7 +12,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireCapability } from "@/lib/auth/guards";
 import { logAudit } from "@/lib/audit";
 import { getCompany } from "@/lib/data/companies";
-import { canTransition, type PeriodStatus } from "@/lib/domain/period/lifecycle";
+import { canTransition, requirePeriodMutable, type PeriodStatus } from "@/lib/domain/period/lifecycle";
 import type { Database } from "@/db/types";
 
 async function ctx(companyId: string) {
@@ -160,19 +160,27 @@ export async function setOpeningBalanceAction(input: {
   periodId: string;
   amount: number;
 }): Promise<void> {
-  const { supabase, orgId, userId } = await ctx(input.companyId);
+  const { supabase, orgId } = await ctx(input.companyId);
   await requireCapability(supabase, "period.set_opening_balance", input.companyId);
   if (!Number.isFinite(input.amount)) throw new Error("Opening balance must be a number.");
 
-  const { error } = await supabase
+  // Lifecycle guard (same rule as Cash Flow): locked/closed need Correction Mode.
+  const { data: period } = await supabase
     .from("periods")
-    .update({
-      opening_balance: input.amount,
-      opening_balance_source: "manual",
-      opening_balance_set_by: userId,
-      opening_balance_set_at: new Date().toISOString(),
-    })
-    .eq("id", input.periodId);
+    .select("status, is_correction_mode")
+    .eq("id", input.periodId)
+    .eq("company_id", input.companyId)
+    .maybeSingle();
+  if (!period) throw new Error("Period not found.");
+  requirePeriodMutable({ status: period.status, is_correction_mode: period.is_correction_mode });
+
+  // Write through the guarded RPC so the DB-level lifecycle guard is consistently
+  // enforced (the RPC also checks period.set_opening_balance and stamps set_by).
+  const { error } = await supabase.rpc("set_period_opening_balance", {
+    p_period_id: input.periodId,
+    p_amount: input.amount,
+    p_source: "manual",
+  });
   if (error) throw new Error(error.message);
   await logAudit(supabase, {
     orgId,

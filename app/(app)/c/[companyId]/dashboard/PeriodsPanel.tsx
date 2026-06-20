@@ -6,6 +6,7 @@ import {
   ALLOWED_TRANSITIONS,
   PERIOD_STATUS_LABEL,
   periodLabel,
+  isPeriodMutable,
   type PeriodStatus,
 } from "@/lib/domain/period/lifecycle";
 import {
@@ -143,6 +144,12 @@ function PeriodRow({
 
   const s = STATUS_STYLE[period.status];
   const transitions = ALLOWED_TRANSITIONS[period.status];
+  // Opening balance is editable only for draft/active, or locked/closed with
+  // Correction Mode on - mirrors the server-side guard.
+  const openingEditable = isPeriodMutable({
+    status: period.status,
+    is_correction_mode: period.is_correction_mode,
+  });
 
   return (
     <div className={styles.row}>
@@ -177,7 +184,7 @@ function PeriodRow({
             </button>
           ))}
 
-        {caps.setOpening && (
+        {caps.setOpening && openingEditable && (
           obOpen ? (
             <form
               className={styles.inlineForm}
