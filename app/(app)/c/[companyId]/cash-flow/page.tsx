@@ -185,7 +185,7 @@ export default async function CashFlowPage({
               ["Excluded", coverage.excluded, coverage.excluded > 0 ? "warn" : "muted"],
             ] as const).map(([label, value, tone]) => (
               <div key={label} className={styles.covCard}>
-                <div className={styles.covValue} data-tone={tone}>{value}</div>
+                <div className={styles.covValue} data-tone={tone}>[ {value} ]</div>
                 <div className={styles.covLabel}>{label}</div>
               </div>
             ))}

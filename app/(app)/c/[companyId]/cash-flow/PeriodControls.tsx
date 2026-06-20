@@ -110,7 +110,7 @@ export function OpeningBalanceForm({
           disabled={pending}
           onClick={() => run(() => acceptCarriedOpeningAction({ companyId, periodId }))}
         >
-          {pending ? "Working..." : `Accept carried opening (${formatInline(candidate)})`}
+          {pending ? "Working..." : `Accept carried opening ${formatInline(candidate)}`}
         </button>
       )}
       <form
