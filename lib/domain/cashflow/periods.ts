@@ -7,9 +7,23 @@
  * "carried" opening candidate, but applying it is a separate, controlled action.
  */
 import type { Database } from "@/db/types";
+import { isPeriodMutable } from "../period/lifecycle.ts";
 
 export type PeriodStatus = Database["public"]["Enums"]["period_status"];
 export type OpeningBalanceSource = Database["public"]["Enums"]["opening_balance_source"];
+
+/**
+ * Whether a period's opening balance may be edited, reusing the existing period
+ * lifecycle / Correction Mode rule: editable when draft/active, or locked/closed
+ * with Correction Mode enabled. The server enforces the same rule (RPC + action);
+ * the UI uses this only to avoid showing an enabled control.
+ */
+export function canEditOpeningBalance(period: {
+  status: PeriodStatus;
+  isCorrectionMode: boolean;
+}): boolean {
+  return isPeriodMutable({ status: period.status, is_correction_mode: period.isCorrectionMode });
+}
 
 const MONTHS = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
@@ -60,6 +74,7 @@ export interface PeriodLike {
   year: number;
   month: number | null;
   status: PeriodStatus;
+  isCorrectionMode: boolean;
   openingBalance: number | null;
   openingBalanceSource: OpeningBalanceSource | null;
   closingBalance: number | null;

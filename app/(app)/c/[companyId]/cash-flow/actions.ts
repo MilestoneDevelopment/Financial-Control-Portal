@@ -15,6 +15,7 @@ import { requireCapability } from "@/lib/auth/guards";
 import { logAudit } from "@/lib/audit";
 import { getCompany } from "@/lib/data/companies";
 import { getActiveVersion } from "@/lib/data/structure";
+import { requirePeriodMutable } from "@/lib/domain/period/lifecycle";
 import {
   listCashFlowNodes,
   listCashFlowTransactions,
@@ -92,11 +93,14 @@ export async function setOpeningBalanceAction(input: {
   // Confirm the period belongs to this company (RLS already scopes reads).
   const { data: period } = await supabase
     .from("periods")
-    .select("id, company_id")
+    .select("id, company_id, status, is_correction_mode")
     .eq("id", input.periodId)
     .eq("company_id", input.companyId)
     .maybeSingle();
   if (!period) throw new Error("Period not found.");
+  // Locked/closed periods need Correction Mode (existing lifecycle model). The
+  // RPC enforces this too; here it yields a clean message before the round-trip.
+  requirePeriodMutable({ status: period.status, is_correction_mode: period.is_correction_mode });
 
   const { error } = await supabase.rpc("set_period_opening_balance", {
     p_period_id: input.periodId,
@@ -131,6 +135,8 @@ export async function acceptCarriedOpeningAction(input: {
   const allPeriods = await listCashFlowPeriods(input.companyId);
   const current = allPeriods.find((p) => p.id === input.periodId);
   if (!current) throw new Error("Period not found.");
+  // Same lifecycle rule applies to accepting a carried opening.
+  requirePeriodMutable({ status: current.status, is_correction_mode: current.isCorrectionMode });
 
   const { previous } = adjacentPeriods(allPeriods, input.periodId);
   if (!previous || previous.openingBalance === null) {

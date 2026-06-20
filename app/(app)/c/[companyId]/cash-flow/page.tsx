@@ -19,6 +19,7 @@ import {
   resolveOpeningBalance,
   ytdDateRange,
   isLockedOrClosed,
+  canEditOpeningBalance,
   OPENING_STATE_LABEL,
   type OpeningResolution,
   type PeriodStatus,
@@ -61,6 +62,7 @@ export default async function CashFlowPage({
   // Period-aware state (only populated when a period is selected).
   let inPeriodMode = false;
   let periodStatus: PeriodStatus | null = null;
+  let periodEditable = false;
   let opening: OpeningResolution = { state: "missing", value: null, candidate: null };
   let ytd: { label: string; net: number } | null = null;
 
@@ -87,6 +89,10 @@ export default async function CashFlowPage({
     if (activePeriod) {
       inPeriodMode = true;
       periodStatus = activePeriod.status;
+      periodEditable = canEditOpeningBalance({
+        status: activePeriod.status,
+        isCorrectionMode: activePeriod.isCorrectionMode,
+      });
       range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
       scopeLabel = activePeriod.label;
       usingDateRange = false;
@@ -291,13 +297,20 @@ export default async function CashFlowPage({
                   </div>
                 )}
 
-                {inPeriodMode && canSetOpening && periodIdParam && (
-                  <OpeningBalanceForm
-                    companyId={companyId}
-                    periodId={periodIdParam}
-                    hasValue={opening.value !== null}
-                    candidate={opening.state === "carried-candidate" ? opening.candidate : null}
-                  />
+                {inPeriodMode && canSetOpening && periodIdParam && periodStatus && (
+                  periodEditable ? (
+                    <OpeningBalanceForm
+                      companyId={companyId}
+                      periodId={periodIdParam}
+                      hasValue={opening.value !== null}
+                      candidate={opening.state === "carried-candidate" ? opening.candidate : null}
+                    />
+                  ) : (
+                    <div className={styles.lockNote}>
+                      This period is {PERIOD_STATUS_LABEL[periodStatus].toLowerCase()}. Enable
+                      Correction Mode to change the opening balance.
+                    </div>
+                  )
                 )}
 
                 <div className={styles.totalLine}>

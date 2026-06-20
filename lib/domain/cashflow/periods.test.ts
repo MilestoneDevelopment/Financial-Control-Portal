@@ -9,6 +9,7 @@ import {
   resolveOpeningBalance,
   validatePeriodInput,
   validateOpeningBalanceAmount,
+  canEditOpeningBalance,
   type PeriodLike,
 } from "./periods.ts";
 import { buildCashFlowTree, computeClosingBalance } from "./generate.ts";
@@ -18,6 +19,7 @@ function period(p: Partial<PeriodLike> & Pick<PeriodLike, "id" | "year">): Perio
   return {
     month: null,
     status: "active",
+    isCorrectionMode: false,
     openingBalance: null,
     openingBalanceSource: null,
     closingBalance: null,
@@ -143,6 +145,19 @@ test("validatePeriodInput: accepts valid month/year; rejects out-of-range", () =
   assert.throws(() => validatePeriodInput({ year: 2026, month: 0 }), /Month must be/);
   assert.throws(() => validatePeriodInput({ year: 2026, month: 13 }), /Month must be/);
   assert.throws(() => validatePeriodInput({ year: 2026.5, month: 1 }), /Year must be/);
+});
+
+test("canEditOpeningBalance: editable for draft/active; locked/closed need correction mode", () => {
+  // Editable states.
+  assert.equal(canEditOpeningBalance({ status: "draft", isCorrectionMode: false }), true);
+  assert.equal(canEditOpeningBalance({ status: "active", isCorrectionMode: false }), true);
+  // Locked / closed are blocked unless Correction Mode is on.
+  assert.equal(canEditOpeningBalance({ status: "locked", isCorrectionMode: false }), false);
+  assert.equal(canEditOpeningBalance({ status: "closed", isCorrectionMode: false }), false);
+  assert.equal(canEditOpeningBalance({ status: "locked", isCorrectionMode: true }), true);
+  assert.equal(canEditOpeningBalance({ status: "closed", isCorrectionMode: true }), true);
+  // Archived is never editable, even with the flag.
+  assert.equal(canEditOpeningBalance({ status: "archived", isCorrectionMode: true }), false);
 });
 
 test("validateOpeningBalanceAmount: rounds to 2 dp; rejects non-finite", () => {
