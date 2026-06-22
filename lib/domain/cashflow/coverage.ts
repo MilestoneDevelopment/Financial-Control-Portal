@@ -44,7 +44,9 @@ export function summarizeCashFlowCoverage(
   };
   for (const f of facts) {
     const fxOk = FX_OK.has(f.fxStatus);
-    const dirOk = f.classDirection === "in" || f.classDirection === "out";
+    // 'both' is bidirectional and counts; only 'neutral'/null are non-directional.
+    const dirOk =
+      f.classDirection === "in" || f.classDirection === "out" || f.classDirection === "both";
     const included =
       f.status === "confirmed" &&
       (f.source === "manual" || f.source === "rule") &&
@@ -55,7 +57,8 @@ export function summarizeCashFlowCoverage(
 
     if (included) {
       c.included += 1;
-      c.includedAmount += (f.amountGel as number) * (f.classDirection === "in" ? 1 : -1);
+      // in/both preserve the sign (+1); out negates (-1).
+      c.includedAmount += (f.amountGel as number) * (f.classDirection === "out" ? -1 : 1);
     } else if (f.classId === null || f.status === "unclassified") {
       c.unclassified += 1;
     } else if (!fxOk) {

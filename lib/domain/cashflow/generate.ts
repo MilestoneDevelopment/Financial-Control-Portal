@@ -25,15 +25,26 @@ import type {
 
 const FX_OK: ReadonlySet<string> = new Set(["resolved", "not_required"]);
 
-/** Statement sign for a class direction: in -> +1, out -> -1, neutral -> 0. */
+/**
+ * Statement sign for a class direction: in -> +1, out -> -1, neutral -> 0.
+ * 'both' is bidirectional: it preserves the transaction's own signed amount
+ * (factor +1), so a positive amount increases and a negative amount decreases
+ * the cash flow.
+ */
 export function directionSign(dir: CashDirection): number {
-  return dir === "in" ? 1 : dir === "out" ? -1 : 0;
+  return dir === "in" || dir === "both" ? 1 : dir === "out" ? -1 : 0;
+}
+
+/** A directional class (in/out) or a bidirectional one (both) carries amounts. */
+export function isDirectional(dir: CashDirection | null): boolean {
+  return dir === "in" || dir === "out" || dir === "both";
 }
 
 /**
  * Whether a transaction belongs in the generated statement. Requires a confirmed
  * (manual or rule) classification, a resolved GEL amount, an FX status of
- * resolved/not_required, and a class that carries a real cash direction.
+ * resolved/not_required, and a class that carries a real cash direction
+ * (in, out, or both).
  */
 export function isEligible(t: CashFlowTxn, classDir: CashDirection | null): boolean {
   return (
@@ -42,7 +53,7 @@ export function isEligible(t: CashFlowTxn, classDir: CashDirection | null): bool
     t.classId !== null &&
     t.amountGel !== null &&
     FX_OK.has(t.fxStatus) &&
-    (classDir === "in" || classDir === "out")
+    isDirectional(classDir)
   );
 }
 

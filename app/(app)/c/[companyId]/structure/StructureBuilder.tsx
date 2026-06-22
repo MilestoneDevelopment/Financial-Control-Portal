@@ -177,7 +177,7 @@ export function StructureBuilder({
   );
 }
 
-type Dir = "in" | "out" | "neutral";
+type Dir = "in" | "out" | "neutral" | "both";
 
 function NodeRow({
   level,

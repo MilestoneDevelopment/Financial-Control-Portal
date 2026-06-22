@@ -115,6 +115,26 @@ test("signedAmount: in adds, out subtracts, sign of the amount is preserved", ()
   assert.equal(signedAmount(-200, "in"), -200);
   // A refund of an expense (negative amount) on an outflow class adds cash back.
   assert.equal(signedAmount(-200, "out"), 200);
+  // 'both' is bidirectional: it preserves the transaction's own sign.
+  assert.equal(signedAmount(500, "both"), 500);
+  assert.equal(signedAmount(-200, "both"), -200);
+});
+
+test("bidirectional 'both' class: included, sign preserved, rolls into totals", () => {
+  const nodes: CashFlowNode[] = [
+    node({ id: "s", kind: "section", label: "Cash flows from financing activities", parentId: null, sortOrder: 0 }),
+    node({ id: "t", kind: "group", label: "Total Cash flows from financing activities", parentId: "s", sortOrder: 0 }),
+    node({ id: "cap", kind: "class", label: "Capital contributions", parentId: "t", sortOrder: 0, cashDirection: "both" }),
+  ];
+  // One equity inflow (+1000) and one return of capital (-300) on the SAME line.
+  const st = buildCashFlowTree(nodes, [
+    txn({ id: "a", classId: "cap", amountGel: 1000 }),
+    txn({ id: "b", classId: "cap", amountGel: -300 }),
+  ]);
+  const cap = st.roots[0].children[0].children[0];
+  assert.equal(cap.amount, 700); // 1000 + (-300), signs preserved
+  assert.equal(cap.count, 2);
+  assert.equal(st.net, 700); // rolls up through the financing total + section
 });
 
 test("isEligible: only confirmed + classified + fx-ok + directional rows count", () => {
@@ -125,6 +145,8 @@ test("isEligible: only confirmed + classified + fx-ok + directional rows count",
   assert.equal(isEligible(txn({ id: "e", classId: "land", amountGel: null }), "in"), false);
   // Confirmed + classified but the class has no direction -> not on a statement.
   assert.equal(isEligible(txn({ id: "f", classId: "x" }), "neutral"), false);
+  // A bidirectional 'both' class is eligible.
+  assert.equal(isEligible(txn({ id: "g", classId: "cap" }), "both"), true);
 });
 
 test("computeNetCashFlow: sums section totals", () => {

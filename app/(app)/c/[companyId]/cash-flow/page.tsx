@@ -239,7 +239,9 @@ export default async function CashFlowPage({
                                   ? "in"
                                   : r.direction === "out"
                                     ? "out"
-                                    : "no direction"}
+                                    : r.direction === "both"
+                                      ? "in / out"
+                                      : "no direction"}
                               </span>
                             )}
                           </span>

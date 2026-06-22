@@ -322,6 +322,10 @@
   background: var(--fcp-warning-bg);
   color: var(--fcp-warning);
 }
+.dirTag[data-dir="both"] {
+  background: var(--fcp-accent-tint);
+  color: var(--fcp-accent-ink);
+}
 
 /* ---- Totals + balance ---- */
 .summaryRow {

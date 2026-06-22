@@ -43,6 +43,15 @@ test("unclassified rows are excluded from inclusion but counted", () => {
   assert.equal(c.unclassified, 1);
 });
 
+test("bidirectional 'both' rows are included; sign preserved in includedAmount", () => {
+  const c = summarizeCashFlowCoverage([
+    fact({ id: "a", classId: "cap", classDirection: "both", amountGel: 1000 }),
+    fact({ id: "b", classId: "cap", classDirection: "both", amountGel: -300 }),
+  ]);
+  assert.equal(c.included, 2);
+  assert.equal(c.includedAmount, 700); // 1000 + (-300), not negated
+});
+
 test("FX-pending and manual-rate rows are excluded from inclusion but counted", () => {
   const c = summarizeCashFlowCoverage([
     fact({ id: "a", fxStatus: "pending" }),

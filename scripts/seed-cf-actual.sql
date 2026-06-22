@@ -1,7 +1,7 @@
 -- Phase 5A: idempotent CF_Actual + CAPEX structure seed for Tsavkisi Heights.
 -- Generated from reference/CF_Actual (exact labels) + approved CAPEX English translations.
 -- Replaces the active structure IN PLACE. Run via the admin SQL path (MCP).
--- Nodes: section=3 group=17 class(leaf)=88 total=108.
+-- Nodes: section=3 group=17 class(leaf)=87 total=107.
 -- CAPEX sits under 'Total Technical' (t_tech) so it rolls into the Total Technical subtotal.
 begin;
 create temp table _sales on commit drop as
@@ -93,8 +93,7 @@ insert into _n (k,parent_k,kind,label,dir,ord) values
   ('l91', 't_inv', 'class'::cf_node_kind, 'Plant & equipment', 'out'::cash_direction, 91),
   ('l95', 't_fin', 'class'::cf_node_kind, 'Borrowings', 'in'::cash_direction, 95),
   ('l96', 't_fin', 'class'::cf_node_kind, 'Repayment of borrowings', 'out'::cash_direction, 96),
-  ('l97', 't_fin', 'class'::cf_node_kind, 'Capital contributions', 'in'::cash_direction, 97),
-  ('l_retcap', 't_fin', 'class'::cf_node_kind, 'Return of capital', 'out'::cash_direction, 99),
+  ('l97', 't_fin', 'class'::cf_node_kind, 'Capital contributions', 'both'::cash_direction, 97),
   ('capex', 't_tech', 'group'::cf_node_kind, 'CAPEX', 'neutral'::cash_direction, 100),
   ('cx_cube', 'capex', 'group'::cf_node_kind, 'Cube Construction', 'neutral'::cash_direction, 101),
   ('cx_gwp', 'capex', 'group'::cf_node_kind, 'GWP', 'neutral'::cash_direction, 102),

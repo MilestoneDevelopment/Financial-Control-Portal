@@ -1087,7 +1087,7 @@ export type Database = {
     }
     Enums: {
       audit_severity: "ok" | "warn"
-      cash_direction: "in" | "out" | "neutral"
+      cash_direction: "in" | "out" | "neutral" | "both"
       cf_node_kind: "section" | "group" | "class"
       classification_rule_type:
         | "account_exact"
@@ -1241,7 +1241,7 @@ export const Constants = {
   public: {
     Enums: {
       audit_severity: ["ok", "warn"],
-      cash_direction: ["in", "out", "neutral"],
+      cash_direction: ["in", "out", "neutral", "both"],
       cf_node_kind: ["section", "group", "class"],
       classification_rule_type: [
         "account_exact",
