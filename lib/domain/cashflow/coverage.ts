@@ -49,7 +49,7 @@ export function summarizeCashFlowCoverage(
       f.classDirection === "in" || f.classDirection === "out" || f.classDirection === "both";
     const included =
       f.status === "confirmed" &&
-      (f.source === "manual" || f.source === "rule") &&
+      (f.source === "manual" || f.source === "rule" || f.source === "import") &&
       f.classId !== null &&
       f.amountGel !== null &&
       fxOk &&

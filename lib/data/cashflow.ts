@@ -86,6 +86,7 @@ export interface CashFlowPeriodOption {
   openingBalance: number | null;
   openingBalanceSource: OpeningBalanceSource | null;
   closingBalance: number | null;
+  fxFluctuations: number | null;
   dateFrom: string;
   dateTo: string;
 }
@@ -102,7 +103,7 @@ export async function listCashFlowPeriods(
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("periods")
-    .select("id, year, month, status, is_correction_mode, opening_balance, opening_balance_source, closing_balance")
+    .select("id, year, month, status, is_correction_mode, opening_balance, opening_balance_source, closing_balance, fx_fluctuations_gel")
     .eq("company_id", companyId)
     .order("year", { ascending: false })
     .order("month", { ascending: false, nullsFirst: false });
@@ -119,6 +120,7 @@ export async function listCashFlowPeriods(
       openingBalance: p.opening_balance,
       openingBalanceSource: p.opening_balance_source,
       closingBalance: p.closing_balance,
+      fxFluctuations: p.fx_fluctuations_gel,
       dateFrom,
       dateTo,
     };

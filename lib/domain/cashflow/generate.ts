@@ -49,7 +49,7 @@ export function isDirectional(dir: CashDirection | null): boolean {
 export function isEligible(t: CashFlowTxn, classDir: CashDirection | null): boolean {
   return (
     t.status === "confirmed" &&
-    (t.source === "manual" || t.source === "rule") &&
+    (t.source === "manual" || t.source === "rule" || t.source === "import") &&
     t.classId !== null &&
     t.amountGel !== null &&
     FX_OK.has(t.fxStatus) &&
@@ -154,14 +154,16 @@ export function computeNetCashFlow(roots: CashFlowTreeNode[]): number {
 }
 
 /**
- * Closing Cash Balance = Opening Cash Balance + Net Cash Flow. Returns null when
- * no opening balance is set - the caller must not invent one.
+ * Closing Cash Balance = Opening Cash Balance + Net Cash Flow + FX fluctuations.
+ * Returns null when no opening balance is set - the caller must not invent one.
+ * `fx` defaults to 0 so callers without FX data are unaffected.
  */
 export function computeClosingBalance(
   openingBalance: number | null,
   net: number,
+  fx = 0,
 ): number | null {
-  return openingBalance === null ? null : openingBalance + net;
+  return openingBalance === null ? null : openingBalance + net + fx;
 }
 
 function sum(xs: number[]): number {

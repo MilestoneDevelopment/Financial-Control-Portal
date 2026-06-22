@@ -29,6 +29,8 @@ function txn(p: Partial<CashFlowTxn> & Pick<CashFlowTxn, "id" | "classId">): Cas
   };
 }
 
+const round2 = (n: number) => Math.round(n * 100) / 100;
+
 // Mirrors the real Tsavkisi Heights structure: Operating -> Revenue/Expenses.
 const NODES: CashFlowNode[] = [
   node({ id: "s1", kind: "section", label: "Operating Cash Flow", parentId: null, sortOrder: 0 }),
@@ -147,6 +149,8 @@ test("isEligible: only confirmed + classified + fx-ok + directional rows count",
   assert.equal(isEligible(txn({ id: "f", classId: "x" }), "neutral"), false);
   // A bidirectional 'both' class is eligible.
   assert.equal(isEligible(txn({ id: "g", classId: "cap" }), "both"), true);
+  // Imported summary actuals (source 'import') are eligible like manual/rule.
+  assert.equal(isEligible(txn({ id: "h", classId: "land", source: "import" }), "in"), true);
 });
 
 test("computeNetCashFlow: sums section totals", () => {
@@ -157,11 +161,15 @@ test("computeNetCashFlow: sums section totals", () => {
   assert.equal(computeNetCashFlow(st.roots), 750);
 });
 
-test("computeClosingBalance: opening + net = closing identity", () => {
-  assert.equal(computeClosingBalance(1000, 750), 1750);
+test("computeClosingBalance: opening + net + fx = closing identity", () => {
+  assert.equal(computeClosingBalance(1000, 750), 1750); // fx defaults to 0
   assert.equal(computeClosingBalance(0, -500), -500);
-  // No opening balance -> null (never invented).
-  assert.equal(computeClosingBalance(null, 750), null);
+  // FX fluctuations included: opening + net + fx.
+  assert.equal(computeClosingBalance(1000, 750, -250), 1500);
+  // Full-history reconciliation (rounded to 2dp to absorb float noise).
+  assert.equal(round2(computeClosingBalance(0, 189565.58, -25075.41) as number), 164490.17);
+  // No opening balance -> null (never invented), even with fx.
+  assert.equal(computeClosingBalance(null, 750, -10), null);
 });
 
 test("empty structure / missing class: no rows, zero net, nothing throws", () => {

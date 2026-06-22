@@ -672,6 +672,7 @@ export type Database = {
           company_id: string
           correction_reason: string | null
           created_at: string
+          fx_fluctuations_gel: number | null
           id: string
           is_correction_mode: boolean
           locked_at: string | null
@@ -694,6 +695,7 @@ export type Database = {
           company_id: string
           correction_reason?: string | null
           created_at?: string
+          fx_fluctuations_gel?: number | null
           id?: string
           is_correction_mode?: boolean
           locked_at?: string | null
@@ -716,6 +718,7 @@ export type Database = {
           company_id?: string
           correction_reason?: string | null
           created_at?: string
+          fx_fluctuations_gel?: number | null
           id?: string
           is_correction_mode?: boolean
           locked_at?: string | null
@@ -1096,7 +1099,7 @@ export type Database = {
         | "description_regex"
         | "amount_direction"
         | "combined"
-      classification_source: "manual" | "rule"
+      classification_source: "manual" | "rule" | "import"
       company_status: "draft" | "active" | "archived"
       currency: "GEL" | "USD" | "EUR"
       fx_rate_source: "imported" | "nbg" | "nbg_prior_filled" | "manual"
@@ -1251,7 +1254,7 @@ export const Constants = {
         "amount_direction",
         "combined",
       ],
-      classification_source: ["manual", "rule"],
+      classification_source: ["manual", "rule", "import"],
       company_status: ["draft", "active", "archived"],
       currency: ["GEL", "USD", "EUR"],
       fx_rate_source: ["imported", "nbg", "nbg_prior_filled", "manual"],

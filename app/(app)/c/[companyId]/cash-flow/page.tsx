@@ -64,6 +64,7 @@ export default async function CashFlowPage({
   let periodStatus: PeriodStatus | null = null;
   let periodEditable = false;
   let opening: OpeningResolution = { state: "missing", value: null, candidate: null };
+  let periodFx = 0;
   let ytd: { label: string; net: number } | null = null;
 
   if (isSupabaseConfigured()) {
@@ -93,6 +94,7 @@ export default async function CashFlowPage({
         status: activePeriod.status,
         isCorrectionMode: activePeriod.isCorrectionMode,
       });
+      periodFx = activePeriod.fxFluctuations ?? 0;
       range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
       scopeLabel = activePeriod.label;
       usingDateRange = false;
@@ -128,12 +130,13 @@ export default async function CashFlowPage({
       const { previous } = adjacentPeriods(allPeriods, activePeriod.id);
       let previousClosing: number | null = null;
       if (previous && previous.openingBalance !== null) {
+        // (previous closing includes its FX so the carried opening matches)
         const prevTxns = await listCashFlowTransactions(companyId, {
           dateFrom: previous.dateFrom,
           dateTo: previous.dateTo,
         });
         const prevNet = buildCashFlowTree(nodes, prevTxns).net;
-        previousClosing = computeClosingBalance(previous.openingBalance, prevNet);
+        previousClosing = computeClosingBalance(previous.openingBalance, prevNet, previous.fxFluctuations ?? 0);
       }
       opening = resolveOpeningBalance({
         openingBalance: activePeriod.openingBalance,
@@ -148,7 +151,7 @@ export default async function CashFlowPage({
     }
   }
 
-  const closing = computeClosingBalance(opening.value, net);
+  const closing = computeClosingBalance(opening.value, net, periodFx);
   const exclusionsTotal = coverage.unclassified + coverage.fxPending + coverage.excluded;
 
   return (
@@ -319,10 +322,10 @@ export default async function CashFlowPage({
                   <span>Net Cash Flow</span>
                   <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
                 </div>
-                {/* Cash balance bridge line (Phase 5A, Decision 2): static 0.00; editable FX not modeled yet. */}
+                {/* Cash balance bridge: FX from the selected period (read-only); 0.00 outside period mode. */}
                 <div className={styles.totalLine}>
                   <span>FX fluctuations</span>
-                  <span className={styles.num}>{fmt(0)}</span>
+                  <span className={styles.num} data-negative={periodFx < 0}>{fmt(periodFx)}</span>
                 </div>
                 <div className={`${styles.totalLine} ${styles.netLine}`}>
                   <span>Closing Cash Balance</span>

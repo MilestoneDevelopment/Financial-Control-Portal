@@ -91,7 +91,7 @@ insert into _n (k,parent_k,kind,label,dir,ord) values
   ('l83', 'g_other', 'class'::cf_node_kind, 'Graphic designer', 'out'::cash_direction, 83),
   ('l86', 'g_outflows', 'class'::cf_node_kind, 'Contingency (PS) - 5%', 'out'::cash_direction, 86),
   ('l91', 't_inv', 'class'::cf_node_kind, 'Plant & equipment', 'out'::cash_direction, 91),
-  ('l95', 't_fin', 'class'::cf_node_kind, 'Borrowings', 'in'::cash_direction, 95),
+  ('l95', 't_fin', 'class'::cf_node_kind, 'Borrowings', 'both'::cash_direction, 95),
   ('l96', 't_fin', 'class'::cf_node_kind, 'Repayment of borrowings', 'out'::cash_direction, 96),
   ('l97', 't_fin', 'class'::cf_node_kind, 'Capital contributions', 'both'::cash_direction, 97),
   ('capex', 't_tech', 'group'::cf_node_kind, 'CAPEX', 'neutral'::cash_direction, 100),
