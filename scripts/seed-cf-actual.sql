@@ -1,17 +1,15 @@
--- Phase 5A: idempotent CF_Actual structure seed for Tsavkisi Heights.
--- Generated from reference/CF_Actual. Replaces the active structure IN PLACE.
--- Run via the admin SQL path (MCP). Labels are EXACT (no trim/normalize).
--- Nodes: section=3 group=11 class(leaf)=68 total=82.
+-- Phase 5A: idempotent CF_Actual + CAPEX structure seed for Tsavkisi Heights.
+-- Generated from reference/CF_Actual (exact labels) + approved CAPEX English translations.
+-- Replaces the active structure IN PLACE. Run via the admin SQL path (MCP).
+-- Nodes: section=3 group=17 class(leaf)=87 total=107.
+-- CAPEX sits under 'Total Technical' (t_tech) so it rolls into the Total Technical subtotal.
 begin;
--- 1. Capture sales-classified transactions BEFORE teardown (idempotent across reruns).
 create temp table _sales on commit drop as
   select t.id, t.classification_source
   from transactions t join cf_nodes c on c.id = t.class_id
   where t.company_id = 'd98b696b-8b99-411d-b3d0-a4a9eb12b15a'
     and c.label in ('Land Plot Sales','Cash inflows from sales');
--- 2. Teardown the active version's nodes (CASCADE removes children + any rule via class_id).
 delete from cf_nodes where company_id = 'd98b696b-8b99-411d-b3d0-a4a9eb12b15a' and structure_version_id = '43bff1d1-a2ce-420b-ae0a-0d60d6a5e6d0';
--- 3. Stage the CF_Actual hierarchy.
 create temp table _n (k text primary key, parent_k text, kind cf_node_kind, label text, dir cash_direction, ord int) on commit drop;
 insert into _n (k,parent_k,kind,label,dir,ord) values
   ('s_ops', NULL, 'section'::cf_node_kind, 'Cash flows from operations:', 'neutral'::cash_direction, 4),
@@ -95,17 +93,40 @@ insert into _n (k,parent_k,kind,label,dir,ord) values
   ('l91', 't_inv', 'class'::cf_node_kind, 'Plant & equipment', 'out'::cash_direction, 91),
   ('l95', 't_fin', 'class'::cf_node_kind, 'Borrowings', 'in'::cash_direction, 95),
   ('l96', 't_fin', 'class'::cf_node_kind, 'Repayment of borrowings', 'out'::cash_direction, 96),
-  ('l97', 't_fin', 'class'::cf_node_kind, 'Capital contributions', 'in'::cash_direction, 97);
+  ('l97', 't_fin', 'class'::cf_node_kind, 'Capital contributions', 'in'::cash_direction, 97),
+  ('capex', 't_tech', 'group'::cf_node_kind, 'CAPEX', 'neutral'::cash_direction, 100),
+  ('cx_cube', 'capex', 'group'::cf_node_kind, 'Cube Construction', 'neutral'::cash_direction, 101),
+  ('cx_gwp', 'capex', 'group'::cf_node_kind, 'GWP', 'neutral'::cash_direction, 102),
+  ('cx_tben', 'capex', 'group'::cf_node_kind, 'Tbilisi Energi', 'neutral'::cash_direction, 103),
+  ('cx_telasi', 'capex', 'group'::cf_node_kind, 'Telasi', 'neutral'::cash_direction, 104),
+  ('cx_tsav', 'capex', 'group'::cf_node_kind, 'Tsavkisi Heights', 'neutral'::cash_direction, 105),
+  ('cxc1', 'cx_cube', 'class'::cf_node_kind, 'Advance', 'out'::cash_direction, 110),
+  ('cxc2', 'cx_cube', 'class'::cf_node_kind, 'Preparatory works and safety', 'out'::cash_direction, 111),
+  ('cxc3', 'cx_cube', 'class'::cf_node_kind, 'Stormwater drainage', 'out'::cash_direction, 112),
+  ('cxc4', 'cx_cube', 'class'::cf_node_kind, 'Sewerage system', 'out'::cash_direction, 113),
+  ('cxc5', 'cx_cube', 'class'::cf_node_kind, 'Road construction', 'out'::cash_direction, 114),
+  ('cxc6', 'cx_cube', 'class'::cf_node_kind, 'Outdoor lighting', 'out'::cash_direction, 115),
+  ('cxc7', 'cx_cube', 'class'::cf_node_kind, 'Public park / square', 'out'::cash_direction, 116),
+  ('cxc8', 'cx_cube', 'class'::cf_node_kind, 'Expert assessment and studies cost - 2%', 'out'::cash_direction, 117),
+  ('cxg1', 'cx_gwp', 'class'::cf_node_kind, 'Water (amount to be confirmed by GWP)', 'out'::cash_direction, 120),
+  ('cxt1', 'cx_tben', 'class'::cf_node_kind, 'Natural gas', 'out'::cash_direction, 121),
+  ('cxl1', 'cx_telasi', 'class'::cf_node_kind, 'Electricity / subscription fee', 'out'::cash_direction, 122),
+  ('cxs1', 'cx_tsav', 'class'::cf_node_kind, 'Project manager', 'out'::cash_direction, 130),
+  ('cxs2', 'cx_tsav', 'class'::cf_node_kind, 'Site manager', 'out'::cash_direction, 131),
+  ('cxs3', 'cx_tsav', 'class'::cf_node_kind, 'Construction supervision', 'out'::cash_direction, 132),
+  ('cxs4', 'cx_tsav', 'class'::cf_node_kind, 'Occupational safety', 'out'::cash_direction, 133),
+  ('cxs5', 'cx_tsav', 'class'::cf_node_kind, 'Environmental protection', 'out'::cash_direction, 134),
+  ('cxs6', 'cx_tsav', 'class'::cf_node_kind, 'Other support personnel', 'out'::cash_direction, 135),
+  ('cxs7', 'cx_tsav', 'class'::cf_node_kind, 'Administrative building fit-out', 'out'::cash_direction, 136),
+  ('cxs8', 'cx_tsav', 'class'::cf_node_kind, 'Temporary administrative structure', 'out'::cash_direction, 137);
 create temp table _idmap on commit drop as select k, gen_random_uuid() as id from _n;
 insert into cf_nodes (id, company_id, structure_version_id, parent_id, kind, label, cash_direction, sort_order, is_active)
 select m.id, 'd98b696b-8b99-411d-b3d0-a4a9eb12b15a', '43bff1d1-a2ce-420b-ae0a-0d60d6a5e6d0', pm.id, n.kind, n.label, n.dir, n.ord, true
 from _n n join _idmap m on m.k = n.k left join _idmap pm on pm.k = n.parent_k;
--- 4. Recreate the sales rule -> new 'Cash inflows from sales' leaf.
 insert into classification_rules (org_id, company_id, class_id, name, rule_type, debit_account_pattern, credit_account_pattern, priority, confidence_score, is_active)
 select '1c497127-5d71-43f7-abc3-f899bec61bbe', 'd98b696b-8b99-411d-b3d0-a4a9eb12b15a',
   (select id from cf_nodes where company_id='d98b696b-8b99-411d-b3d0-a4a9eb12b15a' and structure_version_id='43bff1d1-a2ce-420b-ae0a-0d60d6a5e6d0' and kind='class' and label='Cash inflows from sales'),
   '1210 / 6100 -> Cash inflows from sales', 'account_pair'::classification_rule_type, '1210', '6100', 50, 0.95, true;
--- 5. Remap captured sales transactions to the new leaf (never delete transactions).
 update transactions t
   set class_id = (select id from cf_nodes where company_id='d98b696b-8b99-411d-b3d0-a4a9eb12b15a' and structure_version_id='43bff1d1-a2ce-420b-ae0a-0d60d6a5e6d0' and kind='class' and label='Cash inflows from sales'),
       classification_status = 'confirmed',
