@@ -52,7 +52,7 @@ export default async function CashFlowPage({
   let canSetOpening = false;
   let hasStructure = false;
   let periods: { id: string; label: string }[] = [];
-  let sections: ReturnType<typeof buildCashFlowTree>["sections"] = [];
+  let roots: ReturnType<typeof buildCashFlowTree>["roots"] = [];
   let rows: ReturnType<typeof formatCashFlowRows> = [];
   let net = 0;
   let coverage = summarizeCashFlowCoverage([]);
@@ -103,7 +103,7 @@ export default async function CashFlowPage({
 
     const txns = await listCashFlowTransactions(companyId, range);
     const statement = buildCashFlowTree(nodes, txns);
-    sections = statement.sections;
+    roots = statement.roots;
     net = statement.net;
     rows = formatCashFlowRows(statement);
 
@@ -223,7 +223,7 @@ export default async function CashFlowPage({
                       <tr
                         key={`${r.kind}-${i}`}
                         className={
-                          r.kind === "section"
+                          r.emphasis
                             ? styles.rowSection
                             : r.kind === "group"
                               ? styles.rowGroup
@@ -256,7 +256,7 @@ export default async function CashFlowPage({
             <div className={styles.summaryRow}>
               <div className={styles.totalsCard}>
                 <div className={styles.totalsTitle}>Totals</div>
-                {sections.map((s) => (
+                {roots.map((s) => (
                   <div key={s.id} className={styles.totalLine}>
                     <span>{s.label}</span>
                     <span className={styles.num} data-negative={s.amount < 0}>{fmt(s.amount)}</span>
@@ -316,6 +316,11 @@ export default async function CashFlowPage({
                 <div className={styles.totalLine}>
                   <span>Net Cash Flow</span>
                   <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
+                </div>
+                {/* Cash balance bridge line (Phase 5A, Decision 2): static 0.00; editable FX not modeled yet. */}
+                <div className={styles.totalLine}>
+                  <span>FX fluctuations</span>
+                  <span className={styles.num}>{fmt(0)}</span>
                 </div>
                 <div className={`${styles.totalLine} ${styles.netLine}`}>
                   <span>Closing Cash Balance</span>

@@ -38,3 +38,9 @@ Thumbs.db
 
 # local scratch / test fixtures - never committed
 /tmp/
+
+# local reference material (source workbooks, etc.) - never committed
+/reference/
+
+# local preview/dev server config (scratch) - never committed
+/.claude/

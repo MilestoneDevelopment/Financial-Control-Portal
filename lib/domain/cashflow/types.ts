@@ -34,34 +34,27 @@ export interface CashFlowTxn {
   fxStatus: FxStatus;
 }
 
-/** A rolled-up class line item (cash flow line). Amount is signed GEL. */
-export interface ClassRow {
+/**
+ * A node in the rolled-up cash-flow tree. The tree is recursive to arbitrary
+ * depth (CF_Actual nests Section > Outflows > Marketing > channel > leaf), so a
+ * single node shape carries every level. `amount` is signed GEL: a leaf carries
+ * its own classified rollup; a container (section/group) carries the signed sum
+ * of its descendant leaves. `count` is the included-transaction count in the
+ * subtree.
+ */
+export interface CashFlowTreeNode {
   id: string;
+  kind: CfNodeKind;
   label: string;
   cashDirection: CashDirection;
   amount: number;
   count: number;
-}
-/** A rolled-up group. Amount = sum of its class amounts. */
-export interface GroupRow {
-  id: string;
-  label: string;
-  amount: number;
-  count: number;
-  classes: ClassRow[];
-}
-/** A rolled-up section. Amount = sum of its group amounts. */
-export interface SectionRow {
-  id: string;
-  label: string;
-  amount: number;
-  count: number;
-  groups: GroupRow[];
+  children: CashFlowTreeNode[];
 }
 
-/** The generated statement: ordered sections + net + how many txns were included. */
+/** The generated statement: top-level sections (recursive) + net + included count. */
 export interface CashFlowStatement {
-  sections: SectionRow[];
+  roots: CashFlowTreeNode[];
   net: number;
   includedCount: number;
 }

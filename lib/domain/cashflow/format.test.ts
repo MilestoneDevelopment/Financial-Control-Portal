@@ -65,6 +65,38 @@ test("formatCashFlowRows: flags a class with no cash direction", () => {
 });
 
 test("formatCashFlowRows: empty statement -> no rows", () => {
-  const empty: CashFlowStatement = { sections: [], net: 0, includedCount: 0 };
+  const empty: CashFlowStatement = { roots: [], net: 0, includedCount: 0 };
   assert.deepEqual(formatCashFlowRows(empty), []);
+});
+
+test("formatCashFlowRows: 'Total ...' container renders as a footer after its children", () => {
+  // Section > Total Administrative > 2 leaves. The total prints AFTER the leaves.
+  const nodes: CashFlowNode[] = [
+    node({ id: "s", kind: "section", label: "Cash flows from operations:", parentId: null, sortOrder: 0 }),
+    node({ id: "tadmin", kind: "group", label: "Total Administrative", parentId: "s", sortOrder: 0 }),
+    node({ id: "vat", kind: "class", label: "VAT", parentId: "tadmin", sortOrder: 0, cashDirection: "out" }),
+    node({ id: "sal", kind: "class", label: "Salaries", parentId: "tadmin", sortOrder: 1, cashDirection: "out" }),
+  ];
+  const st = buildCashFlowTree(nodes, [
+    txn({ id: "t1", classId: "vat", amountGel: 100 }),
+    txn({ id: "t2", classId: "sal", amountGel: 200 }),
+  ]);
+  const rows = formatCashFlowRows(st);
+  assert.deepEqual(
+    rows.map((r) => [r.kind, r.label]),
+    [
+      ["section", "Cash flows from operations:"],
+      ["class", "VAT"],
+      ["class", "Salaries"],
+      ["group", "Total Administrative"], // footer AFTER its leaves
+    ],
+  );
+  const total = rows.find((r) => r.label === "Total Administrative");
+  assert.equal(total?.isTotal, true);
+  assert.equal(total?.emphasis, true);
+  assert.equal(total?.selectable, false); // totals are not classification targets
+  assert.equal(total?.amountText, "(300.00)"); // two outflows summed, parentheses
+  // Only leaf class rows are selectable.
+  assert.equal(rows.find((r) => r.label === "VAT")?.selectable, true);
+  assert.equal(rows.find((r) => r.kind === "section")?.selectable, false);
 });

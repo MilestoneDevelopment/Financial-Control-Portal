@@ -19,10 +19,8 @@ import type {
   CashDirection,
   CashFlowNode,
   CashFlowStatement,
+  CashFlowTreeNode,
   CashFlowTxn,
-  ClassRow,
-  GroupRow,
-  SectionRow,
 } from "./types.ts";
 
 const FX_OK: ReadonlySet<string> = new Set(["resolved", "not_required"]);
@@ -82,9 +80,10 @@ export function rollupCashFlow(
 }
 
 /**
- * Build the Section -> Group -> Class statement tree with rolled-up amounts,
- * preserving the active structure's order (sort_order) and hierarchy. Inactive
- * nodes are excluded from the structure entirely.
+ * Build the cash-flow statement tree to arbitrary depth from the active nodes,
+ * preserving sort_order at every level. A leaf (`class`) carries its own signed
+ * rollup; a container (`section`/`group`) carries the signed sum of its
+ * descendant leaves. Inactive nodes are excluded entirely.
  */
 export function buildCashFlowTree(
   nodes: CashFlowNode[],
@@ -101,54 +100,46 @@ export function buildCashFlowTree(
   }
   const sort = (a: CashFlowNode, b: CashFlowNode) => a.sortOrder - b.sortOrder;
 
-  const sections: SectionRow[] = (byParent.get(null) ?? [])
+  function build(node: CashFlowNode): CashFlowTreeNode {
+    const children = (byParent.get(node.id) ?? []).sort(sort).map(build);
+    if (node.kind === "class") {
+      const a = agg.get(node.id) ?? { amount: 0, count: 0 };
+      return {
+        id: node.id,
+        kind: node.kind,
+        label: node.label,
+        cashDirection: node.cashDirection,
+        amount: a.amount,
+        count: a.count,
+        children,
+      };
+    }
+    return {
+      id: node.id,
+      kind: node.kind,
+      label: node.label,
+      cashDirection: node.cashDirection,
+      amount: sum(children.map((c) => c.amount)),
+      count: sum(children.map((c) => c.count)),
+      children,
+    };
+  }
+
+  const roots = (byParent.get(null) ?? [])
     .filter((n) => n.kind === "section")
     .sort(sort)
-    .map((sec) => {
-      const groups: GroupRow[] = (byParent.get(sec.id) ?? [])
-        .filter((n) => n.kind === "group")
-        .sort(sort)
-        .map((grp) => {
-          const classes: ClassRow[] = (byParent.get(grp.id) ?? [])
-            .filter((n) => n.kind === "class")
-            .sort(sort)
-            .map((cls) => {
-              const a = agg.get(cls.id) ?? { amount: 0, count: 0 };
-              return {
-                id: cls.id,
-                label: cls.label,
-                cashDirection: cls.cashDirection,
-                amount: a.amount,
-                count: a.count,
-              };
-            });
-          return {
-            id: grp.id,
-            label: grp.label,
-            amount: sum(classes.map((c) => c.amount)),
-            count: sum(classes.map((c) => c.count)),
-            classes,
-          };
-        });
-      return {
-        id: sec.id,
-        label: sec.label,
-        amount: sum(groups.map((g) => g.amount)),
-        count: sum(groups.map((g) => g.count)),
-        groups,
-      };
-    });
+    .map(build);
 
   return {
-    sections,
-    net: sum(sections.map((s) => s.amount)),
-    includedCount: sum(sections.map((s) => s.count)),
+    roots,
+    net: sum(roots.map((r) => r.amount)),
+    includedCount: sum(roots.map((r) => r.count)),
   };
 }
 
-/** Net Cash Flow = sum of all section totals. */
-export function computeNetCashFlow(sections: SectionRow[]): number {
-  return sum(sections.map((s) => s.amount));
+/** Net Cash Flow = sum of all top-level section totals. */
+export function computeNetCashFlow(roots: CashFlowTreeNode[]): number {
+  return sum(roots.map((r) => r.amount));
 }
 
 /**
