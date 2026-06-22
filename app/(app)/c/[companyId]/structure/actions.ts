@@ -21,6 +21,44 @@ async function orgIdFor(companyId: string): Promise<string> {
   return company.org_id;
 }
 
+/**
+ * Confirm a node belongs to the route company before editing it. RLS already
+ * gates writes by structure.edit on the node's own company, but this prevents a
+ * crafted node id from another company being edited via the current page (the
+ * action's companyId/permission check would otherwise pass for a multi-company
+ * user). Reads are RLS-scoped to accessible companies.
+ */
+async function assertNodeInCompany(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  nodeId: string,
+  companyId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from("cf_nodes")
+    .select("company_id")
+    .eq("id", nodeId)
+    .maybeSingle();
+  if (!data || data.company_id !== companyId) {
+    throw new Error("Node not found for this company.");
+  }
+}
+
+/** Confirm a structure version belongs to the route company. */
+async function assertVersionInCompany(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  versionId: string,
+  companyId: string,
+): Promise<void> {
+  const { data } = await supabase
+    .from("cf_structure_versions")
+    .select("company_id")
+    .eq("id", versionId)
+    .maybeSingle();
+  if (!data || data.company_id !== companyId) {
+    throw new Error("Structure version not found for this company.");
+  }
+}
+
 function revalidate(companyId: string) {
   revalidatePath(`/c/${companyId}/structure`);
 }
@@ -69,6 +107,9 @@ export async function addNodeAction(input: {
 
   const supabase = await createClient();
   await requireCapability(supabase, "structure.edit", input.companyId);
+  // Company scoping: version (and parent, if any) must belong to this company.
+  await assertVersionInCompany(supabase, input.versionId, input.companyId);
+  if (input.parentId) await assertNodeInCompany(supabase, input.parentId, input.companyId);
   const orgId = await orgIdFor(input.companyId);
 
   // sort_order = number of existing siblings (append to end)
@@ -108,6 +149,7 @@ export async function updateNodeAction(input: {
 }): Promise<void> {
   const supabase = await createClient();
   await requireCapability(supabase, "structure.edit", input.companyId);
+  await assertNodeInCompany(supabase, input.nodeId, input.companyId);
   const orgId = await orgIdFor(input.companyId);
 
   const patch: Database["public"]["Tables"]["cf_nodes"]["Update"] = {};
@@ -138,6 +180,7 @@ export async function setNodeActiveAction(input: {
 }): Promise<void> {
   const supabase = await createClient();
   await requireCapability(supabase, "structure.edit", input.companyId);
+  await assertNodeInCompany(supabase, input.nodeId, input.companyId);
   const orgId = await orgIdFor(input.companyId);
 
   const { error } = await supabase

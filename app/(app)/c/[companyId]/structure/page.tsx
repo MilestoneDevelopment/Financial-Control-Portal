@@ -5,9 +5,9 @@ import { capabilityMap } from "@/lib/auth/guards";
 import {
   getActiveVersion,
   getNodes,
-  buildTree,
-  validateStructure,
-  countNodes,
+  buildNodeTree,
+  validateTree,
+  countTree,
 } from "@/lib/data/structure";
 import { StructureBuilder } from "./StructureBuilder";
 import { InitStructure } from "./InitStructure";
@@ -25,21 +25,24 @@ export default async function StructurePage({
   let canEdit = false;
   let hasVersion = false;
   let versionId = "";
-  let tree: ReturnType<typeof buildTree> = [];
-  let issues: ReturnType<typeof validateStructure> = [];
+  let tree: ReturnType<typeof buildNodeTree> = [];
+  let issues: ReturnType<typeof validateTree> = [];
   let counts = { sections: 0, groups: 0, classes: 0, active: 0, inactive: 0 };
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
     canEdit = (await capabilityMap(supabase, companyId, ["structure.edit"]))["structure.edit"];
+    // Company-scoped: the active version (and its nodes) are loaded strictly by
+    // the route company id; force-dynamic refetches per request, so switching
+    // company never reuses another company's structure.
     const version = await getActiveVersion(companyId);
     if (version) {
       hasVersion = true;
       versionId = version.id;
       const nodes = await getNodes(version.id);
-      tree = buildTree(nodes);
-      issues = validateStructure(tree);
-      counts = countNodes(tree);
+      tree = buildNodeTree(nodes);
+      issues = validateTree(tree);
+      counts = countTree(tree);
     }
   }
 

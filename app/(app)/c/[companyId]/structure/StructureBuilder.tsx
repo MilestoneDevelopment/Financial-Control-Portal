@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import type { TreeSection } from "@/lib/domain/structure/tree";
-import type { StructureIssue } from "@/lib/domain/structure/tree";
+import { Fragment, useState, useTransition } from "react";
+import type { TreeNode, TreeCounts, StructureIssue } from "@/lib/domain/structure/tree";
 import {
   addNodeAction,
   updateNodeAction,
@@ -10,7 +9,8 @@ import {
 } from "./actions";
 import styles from "./structure.module.css";
 
-type Counts = { sections: number; groups: number; classes: number; active: number; inactive: number };
+type Dir = "in" | "out" | "neutral" | "both";
+type NodeKind = "section" | "group" | "class";
 
 export function StructureBuilder({
   companyId,
@@ -22,9 +22,9 @@ export function StructureBuilder({
 }: {
   companyId: string;
   versionId: string;
-  tree: TreeSection[];
+  tree: TreeNode[];
   issues: StructureIssue[];
-  counts: Counts;
+  counts: TreeCounts;
   canEdit: boolean;
 }) {
   const [pending, startTransition] = useTransition();
@@ -46,15 +46,15 @@ export function StructureBuilder({
       {error && <div className={styles.error}>{error}</div>}
 
       <div className={styles.cards}>
-        {[
+        {([
           ["Sections", counts.sections],
           ["Groups", counts.groups],
           ["Classes", counts.classes],
           ["Active", counts.active],
           ["Inactive", counts.inactive],
-        ].map(([label, value]) => (
+        ] as const).map(([label, value]) => (
           <div key={label} className={styles.card}>
-            <div className={styles.cardValue} data-num>{value}</div>
+            <div className={styles.cardValue} data-num>[ {value} ]</div>
             <div className={styles.cardLabel}>{label}</div>
           </div>
         ))}
@@ -62,7 +62,7 @@ export function StructureBuilder({
 
       {issues.length > 0 && (
         <div className={styles.issues}>
-          <div className={styles.issuesTitle}>Validation</div>
+          <div className={styles.issuesTitle}>Validation [ {issues.length} ]</div>
           {issues.map((i, idx) => (
             <div
               key={idx}
@@ -79,108 +79,137 @@ export function StructureBuilder({
       )}
 
       <div className={styles.tree}>
-        {tree.length === 0 && (
-          <div className={styles.empty}>No sections yet. Add the first section below.</div>
+        {tree.length === 0 ? (
+          <div className={styles.empty}>
+            This company has no cash flow structure yet. Add the first section below.
+          </div>
+        ) : (
+          <TreeLevel
+            nodes={tree}
+            depth={0}
+            companyId={companyId}
+            versionId={versionId}
+            canEdit={canEdit}
+            pending={pending}
+            run={run}
+          />
         )}
 
-        {tree.map((section) => (
-          <div key={section.id} className={styles.section}>
-            <NodeRow
-              level={0}
-              node={section}
-              canEdit={canEdit}
-              pending={pending}
-              onRename={(label) => run(() => updateNodeAction({ companyId, nodeId: section.id, label }))}
-              onToggleActive={() =>
-                run(() => setNodeActiveAction({ companyId, nodeId: section.id, active: !section.is_active }))
-              }
-            />
-            {section.children.map((group) => (
-              <div key={group.id} className={styles.group}>
-                <NodeRow
-                  level={1}
-                  node={group}
-                  canEdit={canEdit}
-                  pending={pending}
-                  onRename={(label) => run(() => updateNodeAction({ companyId, nodeId: group.id, label }))}
-                  onToggleActive={() =>
-                    run(() => setNodeActiveAction({ companyId, nodeId: group.id, active: !group.is_active }))
-                  }
-                />
-                {group.children.map((cls) => (
-                  <NodeRow
-                    key={cls.id}
-                    level={2}
-                    node={cls}
-                    canEdit={canEdit}
-                    pending={pending}
-                    onRename={(label) => run(() => updateNodeAction({ companyId, nodeId: cls.id, label }))}
-                    onToggleActive={() =>
-                      run(() => setNodeActiveAction({ companyId, nodeId: cls.id, active: !cls.is_active }))
-                    }
-                    onDirection={(dir) =>
-                      run(() => updateNodeAction({ companyId, nodeId: cls.id, cashDirection: dir }))
-                    }
-                  />
-                ))}
-                {canEdit && (
-                  <AddInline
-                    level={2}
-                    placeholder="Add class…"
-                    withDirection
-                    disabled={pending}
-                    onAdd={(label, dir) =>
-                      run(() =>
-                        addNodeAction({
-                          companyId,
-                          versionId,
-                          kind: "class",
-                          label,
-                          parentId: group.id,
-                          cashDirection: dir,
-                        }),
-                      )
-                    }
-                  />
-                )}
-              </div>
-            ))}
-            {canEdit && (
-              <AddInline
-                level={1}
-                placeholder="Add group…"
-                disabled={pending}
-                onAdd={(label) =>
-                  run(() => addNodeAction({ companyId, versionId, kind: "group", label, parentId: section.id }))
-                }
-              />
-            )}
-          </div>
-        ))}
-
         {canEdit && (
-          <AddInline
-            level={0}
-            placeholder="Add section…"
+          <AddNode
+            depth={0}
+            kinds={["section"]}
             disabled={pending}
-            onAdd={(label) =>
-              run(() => addNodeAction({ companyId, versionId, kind: "section", label, parentId: null }))
+            onAdd={(kind, label, dir) =>
+              run(() =>
+                addNodeAction({
+                  companyId,
+                  versionId,
+                  kind,
+                  label,
+                  parentId: null,
+                  cashDirection: kind === "class" ? dir : undefined,
+                }),
+              )
             }
           />
         )}
       </div>
 
       {!canEdit && (
-        <div className={styles.readonly}>Read-only - you do not have the “Edit cash flow structure” permission.</div>
+        <div className={styles.readonly}>
+          Read-only - you do not have the "Edit cash flow structure" permission.
+        </div>
       )}
     </div>
   );
 }
 
-type Dir = "in" | "out" | "neutral" | "both";
+/** Recursively renders a list of nodes and (when editable) an Add-child control. */
+function TreeLevel({
+  nodes,
+  depth,
+  companyId,
+  versionId,
+  canEdit,
+  pending,
+  run,
+}: {
+  nodes: TreeNode[];
+  depth: number;
+  companyId: string;
+  versionId: string;
+  canEdit: boolean;
+  pending: boolean;
+  run: (fn: () => Promise<void>) => void;
+}) {
+  return (
+    <>
+      {nodes.map((node) => (
+        <Fragment key={node.id}>
+          <NodeRow
+            depth={depth}
+            node={node}
+            canEdit={canEdit}
+            pending={pending}
+            onRename={(label) => run(() => updateNodeAction({ companyId, nodeId: node.id, label }))}
+            onToggleActive={() =>
+              run(() => setNodeActiveAction({ companyId, nodeId: node.id, active: !node.is_active }))
+            }
+            onDirection={
+              node.kind === "class"
+                ? (dir) => run(() => updateNodeAction({ companyId, nodeId: node.id, cashDirection: dir }))
+                : undefined
+            }
+          />
+
+          {node.children.length > 0 && (
+            <TreeLevel
+              nodes={node.children}
+              depth={depth + 1}
+              companyId={companyId}
+              versionId={versionId}
+              canEdit={canEdit}
+              pending={pending}
+              run={run}
+            />
+          )}
+
+          {/* Containers (section/group) can take child groups or class leaves. */}
+          {canEdit && node.kind !== "class" && (
+            <AddNode
+              depth={depth + 1}
+              kinds={["group", "class"]}
+              disabled={pending}
+              onAdd={(kind, label, dir) =>
+                run(() =>
+                  addNodeAction({
+                    companyId,
+                    versionId,
+                    kind,
+                    label,
+                    parentId: node.id,
+                    cashDirection: kind === "class" ? dir : undefined,
+                  }),
+                )
+              }
+            />
+          )}
+        </Fragment>
+      ))}
+    </>
+  );
+}
+
+const DIR_OPTIONS: { value: Dir; label: string }[] = [
+  { value: "in", label: "Cash In" },
+  { value: "out", label: "Cash Out" },
+  { value: "both", label: "In / Out" },
+  { value: "neutral", label: "Neutral" },
+];
 
 function NodeRow({
-  level,
+  depth,
   node,
   canEdit,
   pending,
@@ -188,8 +217,8 @@ function NodeRow({
   onToggleActive,
   onDirection,
 }: {
-  level: 0 | 1 | 2;
-  node: { id: string; label: string; is_active: boolean; cash_direction: Dir; kind: string };
+  depth: number;
+  node: TreeNode;
   canEdit: boolean;
   pending: boolean;
   onRename: (label: string) => void;
@@ -198,13 +227,14 @@ function NodeRow({
 }) {
   const [editing, setEditing] = useState(false);
   const [value, setValue] = useState(node.label);
+  const markLevel = Math.min(depth, 2);
 
   return (
     <div
       className={styles.row}
-      style={{ paddingLeft: 14 + level * 22, opacity: node.is_active ? 1 : 0.5 }}
+      style={{ paddingLeft: 14 + depth * 20, opacity: node.is_active ? 1 : 0.5 }}
     >
-      <span className={styles.rowMark} data-level={level} aria-hidden />
+      <span className={styles.rowMark} data-level={markLevel} aria-hidden />
       {editing ? (
         <form
           className={styles.editForm}
@@ -233,9 +263,12 @@ function NodeRow({
           </button>
         </form>
       ) : (
-        <span className={styles.rowLabel} data-level={level}>{node.label}</span>
+        <span className={styles.rowLabel} data-level={markLevel} data-kind={node.kind}>
+          {node.label}
+        </span>
       )}
 
+      {/* Only leaf class nodes carry a cash direction (classification targets). */}
       {node.kind === "class" && onDirection && (
         <select
           className={styles.dir}
@@ -243,9 +276,9 @@ function NodeRow({
           disabled={!canEdit || pending}
           onChange={(e) => onDirection(e.target.value as Dir)}
         >
-          <option value="in">Cash In</option>
-          <option value="out">Cash Out</option>
-          <option value="neutral">Neutral</option>
+          {DIR_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
       )}
 
@@ -263,44 +296,58 @@ function NodeRow({
   );
 }
 
-function AddInline({
-  level,
-  placeholder,
-  withDirection,
+/** Add a node of one of the allowed kinds under a parent (recursive, scoped). */
+function AddNode({
+  depth,
+  kinds,
   disabled,
   onAdd,
 }: {
-  level: 0 | 1 | 2;
-  placeholder: string;
-  withDirection?: boolean;
+  depth: number;
+  kinds: NodeKind[];
   disabled?: boolean;
-  onAdd: (label: string, dir: Dir) => void;
+  onAdd: (kind: NodeKind, label: string, dir: Dir) => void;
 }) {
+  const [kind, setKind] = useState<NodeKind>(kinds[0]);
   const [value, setValue] = useState("");
   const [dir, setDir] = useState<Dir>("out");
+  const label = kinds.length === 1 ? (kinds[0] === "section" ? "Add section" : `Add ${kinds[0]}`) : "Add child";
+
   return (
     <form
       className={styles.addForm}
-      style={{ paddingLeft: 14 + level * 22 }}
+      style={{ paddingLeft: 14 + depth * 20 }}
       onSubmit={(e) => {
         e.preventDefault();
         if (!value.trim()) return;
-        onAdd(value.trim(), dir);
+        onAdd(kind, value.trim(), dir);
         setValue("");
       }}
     >
+      {kinds.length > 1 && (
+        <select
+          className={styles.dir}
+          value={kind}
+          onChange={(e) => setKind(e.target.value as NodeKind)}
+          disabled={disabled}
+          aria-label="Node type"
+        >
+          <option value="group">Group</option>
+          <option value="class">Class</option>
+        </select>
+      )}
       <input
         className={styles.input}
-        placeholder={placeholder}
+        placeholder={label}
         value={value}
         onChange={(e) => setValue(e.target.value)}
         disabled={disabled}
       />
-      {withDirection && (
+      {kind === "class" && (
         <select className={styles.dir} value={dir} onChange={(e) => setDir(e.target.value as Dir)} disabled={disabled}>
-          <option value="in">Cash In</option>
-          <option value="out">Cash Out</option>
-          <option value="neutral">Neutral</option>
+          {DIR_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>{o.label}</option>
+          ))}
         </select>
       )}
       <button className={styles.btnSm} type="submit" disabled={disabled || !value.trim()}>

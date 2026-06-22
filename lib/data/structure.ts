@@ -10,8 +10,8 @@ import { createClient } from "@/lib/supabase/server";
 export type StructureVersion =
   Database["public"]["Tables"]["cf_structure_versions"]["Row"];
 
-export type { CfNode, TreeSection, TreeGroup, StructureIssue } from "@/lib/domain/structure/tree";
-export { buildTree, validateStructure, countNodes } from "@/lib/domain/structure/tree";
+export type { CfNode, TreeSection, TreeGroup, TreeNode, TreeCounts, StructureIssue } from "@/lib/domain/structure/tree";
+export { buildTree, validateStructure, countNodes, buildNodeTree, countTree, validateTree } from "@/lib/domain/structure/tree";
 
 import type { CfNode } from "@/lib/domain/structure/tree";
 
