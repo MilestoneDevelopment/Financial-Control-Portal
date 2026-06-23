@@ -118,12 +118,14 @@ export function MatrixTable({ model }: { model: MatrixModel }) {
                   onFocus={() => setFocusedYear(y.year)}
                 />
               ))}
-              <th
-                className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixTotalCol}`}
-                scope="col"
-              >
-                Total
-              </th>
+              {focusedYear === null && (
+                <th
+                  className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixTotalCol}`}
+                  scope="col"
+                >
+                  Total
+                </th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -166,10 +168,10 @@ function YearHeader({
           </th>
         ))}
         <th
-          className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixYearCol}`}
+          className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixYearCol} ${styles.matrixYearTotal}`}
           scope="col"
         >
-          {year.label}
+          {year.label} Total
         </th>
       </>
     );
@@ -185,6 +187,7 @@ function YearHeader({
         onClick={onFocus}
         title={`View ${year.label} months`}
       >
+        <span className={styles.yearTogglePlus} aria-hidden>+</span>
         {year.label}
       </button>
     </th>
@@ -256,9 +259,11 @@ function MatrixRowView({
           <YearCells key={y.year} yc={yc} year={y} focused={focused} />
         );
       })}
-      <td className={`${styles.matrixAmountCol} ${styles.matrixTotalCol}`}>
-        <AmountCell text={row.total.text} value={row.total.value} />
-      </td>
+      {focusedYear === null && (
+        <td className={`${styles.matrixAmountCol} ${styles.matrixTotalCol}`}>
+          <AmountCell text={row.total.text} value={row.total.value} />
+        </td>
+      )}
     </tr>
   );
 }

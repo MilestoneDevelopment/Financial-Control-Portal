@@ -616,8 +616,16 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fcp-gray-500);
-  font-weight: 600;
   border-bottom: 1px solid var(--fcp-line);
+}
+/* Column headers (year + month + Total + year subtotal) read as bold so the
+ * grid scans cleanly. This overrides the table-wide font-weight: 400 rule. */
+.matrixTable thead th {
+  font-weight: 700;
+}
+/* "YYYY Total" header in focused mode reads heavier than the year buttons. */
+.matrixYearTotal {
+  color: var(--fcp-ink);
 }
 .matrixLabelCol {
   position: sticky;
@@ -626,9 +634,9 @@
   background: var(--fcp-surface);
   text-align: left;
   color: var(--fcp-gray-700);
-  /* Label column is firmly contained; long labels truncate with ellipsis. */
-  min-width: 300px;
-  max-width: 380px;
+  /* Compact label column - long labels truncate with ellipsis. */
+  min-width: 220px;
+  max-width: 280px;
   /* Stronger boundary so labels never visually bleed into numeric cells. */
   border-right: 1px solid var(--fcp-line);
   box-shadow: 6px 0 6px -6px rgba(15, 23, 32, 0.12);
@@ -667,15 +675,19 @@
   color: var(--fcp-ink);
 }
 
-/* Label cell: ellipsis on the label text, tag stays on the right at full width. */
+/* Label cell: direction badge sits immediately after the label text (not floating
+ * to the right of the column). Long labels truncate via the inner span. */
 .matrixTable .labelCell {
   display: flex;
   align-items: center;
   gap: 6px;
+  justify-content: flex-start;
   min-width: 0;
 }
 .matrixTable .labelText {
-  flex: 1 1 auto;
+  /* No grow: keep the badge adjacent to the label text. Shrink + ellipsis only
+   * kicks in for long labels that exceed the column max-width. */
+  flex: 0 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -756,19 +768,40 @@
   color: var(--fcp-gray-400);
 }
 
-/* Year header (compact, clickable to focus). */
+/* Year header (compact, clickable to focus). Always shows a visible "+" so the
+ * affordance is discoverable without hover. */
 .yearToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   border: none;
   background: none;
   cursor: pointer;
   font: inherit;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--fcp-gray-700);
   padding: 0;
 }
 .yearToggle:hover {
   color: var(--fcp-ink);
-  text-decoration: underline;
+}
+.yearToggle:hover .yearTogglePlus {
+  background: var(--fcp-ink-strong);
+  border-color: var(--fcp-ink-strong);
+  color: #fff;
+}
+.yearTogglePlus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid var(--fcp-line);
+  border-radius: 4px;
+  background: var(--fcp-surface);
+  font-size: 12px;
+  line-height: 1;
+  color: var(--fcp-gray-600);
 }
