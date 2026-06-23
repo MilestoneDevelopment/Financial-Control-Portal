@@ -1,72 +1,161 @@
 "use client";
 
 /**
- * Matrix table with year-grouped columns. Years collapse by default to a single
- * subtotal column; expanding a year reveals that year's months alongside the
- * subtotal. The "Total" column at the far right is always present.
+ * Matrix table with year-grouped columns + a compact year-window selector.
  *
- * Sticky behavior is scoped to the table's own scroll container so the row
- * labels stay pinned during horizontal scroll without leaking outside the card.
+ * Default view: the latest 5 years of yearly subtotals plus the grand Total.
+ * Focusing a single year hides the other year columns and exposes that year's
+ * monthly breakdown - lets the user dive in without horizontal clutter, then
+ * step back out with "Back to yearly view".
+ *
+ * Older years are never lost from the model; the From/To selectors widen or
+ * narrow the visible window.
  */
-import { useState } from "react";
-import type { MatrixModel, MatrixRow } from "@/lib/domain/cashflow/matrix";
+import { useMemo, useState } from "react";
+import {
+  DEFAULT_YEAR_WINDOW_SIZE,
+  latestYearWindow,
+  selectMatrixYears,
+  type MatrixModel,
+  type MatrixRow,
+  type YearWindow,
+} from "@/lib/domain/cashflow/matrix";
 import styles from "./cash-flow.module.css";
 
 export function MatrixTable({ model }: { model: MatrixModel }) {
-  // Default: all years collapsed (year subtotal only).
-  const [expanded, setExpanded] = useState<Record<number, boolean>>({});
-  if (model.years.length === 0) {
+  const allYears = useMemo(() => model.years.map((y) => y.year), [model.years]);
+  const defaultWindow = useMemo(() => latestYearWindow(allYears, DEFAULT_YEAR_WINDOW_SIZE), [allYears]);
+  const [windowSpec, setWindow] = useState<YearWindow | null>(defaultWindow);
+  const [focusedYear, setFocusedYear] = useState<number | null>(null);
+
+  if (model.years.length === 0 || !windowSpec) {
     return <div className={styles.empty}>No accounting periods to show.</div>;
   }
 
-  const toggle = (year: number) =>
-    setExpanded((prev) => ({ ...prev, [year]: !prev[year] }));
+  const visibleYears = selectMatrixYears(model, { window: windowSpec, focusedYear });
+  const yearIndexMap = new Map(model.years.map((y, i) => [y.year, i]));
+
+  function resetWindow() {
+    setFocusedYear(null);
+    setWindow(latestYearWindow(allYears, DEFAULT_YEAR_WINDOW_SIZE));
+  }
+
+  function setFrom(year: number) {
+    const to = windowSpec!.to;
+    setWindow({ from: Math.min(year, to), to });
+  }
+  function setTo(year: number) {
+    const from = windowSpec!.from;
+    setWindow({ from, to: Math.max(year, from) });
+  }
+
+  const isDefault =
+    defaultWindow !== null &&
+    windowSpec.from === defaultWindow.from &&
+    windowSpec.to === defaultWindow.to;
 
   return (
-    <div className={styles.matrixScroller}>
-      <table className={styles.matrixTable}>
-        <thead>
-          <tr>
-            <th className={`${styles.matrixHead} ${styles.matrixLabelCol}`} scope="col">
-              Line
-            </th>
-            {model.years.map((y) => {
-              const open = !!expanded[y.year];
-              return (
-                <YearHeader key={y.year} year={y} open={open} onToggle={() => toggle(y.year)} />
-              );
-            })}
-            <th
-              className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixTotalCol}`}
-              scope="col"
+    <>
+      <div className={styles.matrixToolbar}>
+        {focusedYear !== null ? (
+          <div className={styles.matrixFocusBar}>
+            <span className={styles.matrixFocusLabel}>
+              Viewing <strong>{focusedYear}</strong> only
+            </span>
+            <button
+              type="button"
+              className={styles.linkBtn}
+              onClick={() => setFocusedYear(null)}
             >
-              Total
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {model.rows.map((row) => (
-            <MatrixRowView key={row.key} row={row} expanded={expanded} model={model} />
-          ))}
-        </tbody>
-      </table>
-    </div>
+              Back to yearly view
+            </button>
+          </div>
+        ) : (
+          <div className={styles.matrixYearRange}>
+            <span className={styles.matrixToolLabel}>Years</span>
+            <select
+              className={styles.matrixSelect}
+              value={windowSpec.from}
+              onChange={(e) => setFrom(Number(e.target.value))}
+              aria-label="From year"
+            >
+              {allYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            <span className={styles.matrixToolDash} aria-hidden>to</span>
+            <select
+              className={styles.matrixSelect}
+              value={windowSpec.to}
+              onChange={(e) => setTo(Number(e.target.value))}
+              aria-label="To year"
+            >
+              {allYears.map((y) => (
+                <option key={y} value={y}>{y}</option>
+              ))}
+            </select>
+            {!isDefault && (
+              <button type="button" className={styles.linkBtn} onClick={resetWindow}>
+                Reset
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className={styles.matrixScroller}>
+        <table className={styles.matrixTable}>
+          <thead>
+            <tr>
+              <th className={`${styles.matrixHead} ${styles.matrixLabelCol}`} scope="col">
+                Line
+              </th>
+              {visibleYears.map((y) => (
+                <YearHeader
+                  key={y.year}
+                  year={y}
+                  focused={focusedYear === y.year}
+                  onFocus={() => setFocusedYear(y.year)}
+                />
+              ))}
+              <th
+                className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixTotalCol}`}
+                scope="col"
+              >
+                Total
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {model.rows.map((row) => (
+              <MatrixRowView
+                key={row.key}
+                row={row}
+                visibleYears={visibleYears}
+                yearIndexMap={yearIndexMap}
+                focusedYear={focusedYear}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 }
 
 function YearHeader({
   year,
-  open,
-  onToggle,
+  focused,
+  onFocus,
 }: {
   year: MatrixModel["years"][number];
-  open: boolean;
-  onToggle: () => void;
+  focused: boolean;
+  onFocus: () => void;
 }) {
-  return (
-    <>
-      {open &&
-        year.months.map((m) => (
+  if (focused) {
+    return (
+      <>
+        {year.months.map((m) => (
           <th
             key={m.id}
             className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixMonthCol}`}
@@ -76,24 +165,29 @@ function YearHeader({
             {m.label}
           </th>
         ))}
-      <th
-        className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixYearCol}`}
-        scope="col"
-      >
-        <button
-          type="button"
-          className={styles.yearToggle}
-          onClick={onToggle}
-          aria-expanded={open}
-          title={open ? `Collapse ${year.label}` : `Expand ${year.label} to months`}
+        <th
+          className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixYearCol}`}
+          scope="col"
         >
-          <span className={styles.yearToggleCaret} aria-hidden>
-            {open ? "−" : "+"}
-          </span>
           {year.label}
-        </button>
-      </th>
-    </>
+        </th>
+      </>
+    );
+  }
+  return (
+    <th
+      className={`${styles.matrixHead} ${styles.matrixAmountCol} ${styles.matrixYearCol}`}
+      scope="col"
+    >
+      <button
+        type="button"
+        className={styles.yearToggle}
+        onClick={onFocus}
+        title={`View ${year.label} months`}
+      >
+        {year.label}
+      </button>
+    </th>
   );
 }
 
@@ -101,19 +195,20 @@ function rowClass(row: MatrixRow): string {
   if (row.kind === "section") return styles.rowSection;
   if (row.kind === "group") return row.isTotal ? styles.rowGroupTotal : styles.rowGroup;
   if (row.kind === "class") return styles.rowClass;
-  // Bridge rows: net + closing emphasised, opening + fx quiet.
   if (row.kind === "bridge-net" || row.kind === "bridge-closing") return styles.matrixBridgeStrong;
   return styles.matrixBridge;
 }
 
 function MatrixRowView({
   row,
-  expanded,
-  model,
+  visibleYears,
+  yearIndexMap,
+  focusedYear,
 }: {
   row: MatrixRow;
-  expanded: Record<number, boolean>;
-  model: MatrixModel;
+  visibleYears: MatrixModel["years"];
+  yearIndexMap: Map<number, number>;
+  focusedYear: number | null;
 }) {
   return (
     <tr className={rowClass(row)}>
@@ -123,7 +218,7 @@ function MatrixRowView({
         style={{ paddingLeft: 10 + row.depth * 14 }}
       >
         <span className={styles.labelCell}>
-          {row.label}
+          <span className={styles.labelText} title={row.label}>{row.label}</span>
           {row.kind === "class" && row.direction && (
             <span className={styles.dirTag} data-dir={row.direction}>
               {row.direction === "in"
@@ -153,15 +248,16 @@ function MatrixRowView({
           )}
         </span>
       </th>
-      {row.byYear.map((yc, yi) => {
-        const year = model.years[yi];
-        const open = !!expanded[year.year];
+      {visibleYears.map((y) => {
+        const idx = yearIndexMap.get(y.year)!;
+        const yc = row.byYear[idx];
+        const focused = focusedYear === y.year;
         return (
-          <YearCells key={year.year} yc={yc} open={open} row={row} />
+          <YearCells key={y.year} yc={yc} year={y} focused={focused} />
         );
       })}
       <td className={`${styles.matrixAmountCol} ${styles.matrixTotalCol}`}>
-        <span className={cellTone(row, row.total.negative)}>{row.total.text}</span>
+        <AmountCell text={row.total.text} value={row.total.value} />
       </td>
     </tr>
   );
@@ -169,39 +265,33 @@ function MatrixRowView({
 
 function YearCells({
   yc,
-  open,
-  row,
+  year,
+  focused,
 }: {
   yc: MatrixRow["byYear"][number];
-  open: boolean;
-  row: MatrixRow;
+  year: MatrixModel["years"][number];
+  focused: boolean;
 }) {
   return (
     <>
-      {open &&
+      {focused &&
         yc.months.map((c, i) => (
-          <td key={i} className={`${styles.matrixAmountCol} ${styles.matrixMonthCol}`}>
-            <span className={cellTone(row, c.negative)}>{c.text}</span>
+          <td key={year.months[i].id} className={`${styles.matrixAmountCol} ${styles.matrixMonthCol}`}>
+            <AmountCell text={c.text} value={c.value} />
           </td>
         ))}
       <td className={`${styles.matrixAmountCol} ${styles.matrixYearCol}`}>
-        <span className={cellTone(row, yc.total.negative)}>{yc.total.text}</span>
+        <AmountCell text={yc.total.text} value={yc.total.value} />
       </td>
     </>
   );
 }
 
 /**
- * Negative-cell color is reserved for emphasis rows (sections, "Total ..."
- * subtotals, net, closing). Detail line items render in normal text color even
- * when negative - parentheses already communicate the sign.
+ * Amount cell tone in matrix mode: no red. Parentheses already communicate the
+ * sign for negatives; exact zeros render muted to dampen visual noise.
  */
-function cellTone(row: MatrixRow, negative: boolean): string {
-  if (!negative) return styles.cellPlain;
-  const isEmphasis =
-    row.kind === "section" ||
-    row.isTotal ||
-    row.kind === "bridge-net" ||
-    row.kind === "bridge-closing";
-  return isEmphasis ? styles.cellNegStrong : styles.cellPlain;
+function AmountCell({ text, value }: { text: string; value: number | null }) {
+  const isZero = value === 0;
+  return <span className={isZero ? styles.cellZero : styles.cellPlain}>{text}</span>;
 }

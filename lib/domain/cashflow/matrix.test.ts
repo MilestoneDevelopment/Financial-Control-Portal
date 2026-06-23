@@ -1,6 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { buildCashFlowMatrix, type MatrixPeriodInput } from "./matrix.ts";
+import {
+  buildCashFlowMatrix,
+  latestYearWindow,
+  selectMatrixYears,
+  type MatrixPeriodInput,
+} from "./matrix.ts";
 import type { CashFlowNode, CashFlowTxn } from "./types.ts";
 
 function node(
@@ -186,6 +191,67 @@ test("buildCashFlowMatrix: prefers stored closing balance over computed", () => 
   const closing = m.rows.find((r) => r.kind === "bridge-closing")!;
   // Computed would be 100 + 500 - 50 = 550, but stored 999 wins.
   assert.equal(closing.byYear[0].months[0].value, 999);
+});
+
+test("latestYearWindow: <= window size -> spans all available years", () => {
+  assert.deepEqual(latestYearWindow([2023, 2024, 2025, 2026]), { from: 2023, to: 2026 });
+  assert.deepEqual(latestYearWindow([2026, 2024, 2023, 2025]), { from: 2023, to: 2026 });
+  assert.deepEqual(latestYearWindow([2026]), { from: 2026, to: 2026 });
+});
+
+test("latestYearWindow: > window size -> latest N years (older still accessible via spec)", () => {
+  // 2022..2028 with default size 5 -> 2024..2028.
+  assert.deepEqual(latestYearWindow([2022, 2023, 2024, 2025, 2026, 2027, 2028]), {
+    from: 2024,
+    to: 2028,
+  });
+});
+
+test("latestYearWindow: explicit size + deduped input", () => {
+  assert.deepEqual(latestYearWindow([2020, 2021, 2022, 2022, 2023], 3), {
+    from: 2021,
+    to: 2023,
+  });
+});
+
+test("latestYearWindow: empty / invalid size -> null", () => {
+  assert.equal(latestYearWindow([]), null);
+  assert.equal(latestYearWindow([2024], 0), null);
+});
+
+test("selectMatrixYears: window inclusive on both ends", () => {
+  const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
+  const within = selectMatrixYears(m, {
+    window: { from: 2025, to: 2026 },
+    focusedYear: null,
+  });
+  assert.deepEqual(within.map((y) => y.year), [2025, 2026]);
+});
+
+test("selectMatrixYears: tighter window hides older years (still on model)", () => {
+  const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
+  assert.deepEqual(m.years.map((y) => y.year), [2025, 2026]); // unchanged
+  const onlyLatest = selectMatrixYears(m, {
+    window: { from: 2026, to: 2026 },
+    focusedYear: null,
+  });
+  assert.deepEqual(onlyLatest.map((y) => y.year), [2026]);
+});
+
+test("selectMatrixYears: focusedYear wins over window", () => {
+  const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
+  // Window allows both, but focus pins to 2025 only.
+  const only2025 = selectMatrixYears(m, {
+    window: { from: 2025, to: 2026 },
+    focusedYear: 2025,
+  });
+  assert.deepEqual(only2025.map((y) => y.year), [2025]);
+  // Focus on a year not in the window still works (older years remain accessible).
+  const only2025again = selectMatrixYears(m, {
+    window: { from: 2026, to: 2026 },
+    focusedYear: 2025,
+  });
+  assert.deepEqual(only2025again.map((y) => y.year), [2025]);
 });
 
 test("buildCashFlowMatrix: year-level periods (month=null) are excluded", () => {

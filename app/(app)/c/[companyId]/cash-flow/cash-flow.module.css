@@ -527,10 +527,63 @@
 
 /* ---- Matrix view ---- */
 /*
- * The scroller is a bounded box (both axes scrollable inside) so the
- * sticky header (top:0) and sticky label column (left:0) anchor to the
- * card edges instead of leaking past them. The card already has its own
- * padding; the scroller renders flush inside.
+ * Toolbar: focused-year badge OR compact year-window selector. Sits above
+ * the table and contributes to the finance-grade, scannable layout.
+ */
+.matrixToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 2px 10px;
+}
+.matrixYearRange {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.matrixToolLabel {
+  font-size: 10.5px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fcp-gray-500);
+}
+.matrixToolDash {
+  font-size: 11px;
+  color: var(--fcp-gray-500);
+  text-transform: lowercase;
+}
+.matrixSelect {
+  font-family: var(--fcp-font-ui);
+  font-size: 12px;
+  border: 1px solid var(--fcp-line);
+  border-radius: 6px;
+  padding: 4px 7px;
+  background: #fff;
+  color: var(--fcp-ink);
+}
+.matrixFocusBar {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--fcp-surface-3);
+  border: 1px solid var(--fcp-line);
+  border-radius: 6px;
+  padding: 5px 10px;
+}
+.matrixFocusLabel {
+  font-size: 12px;
+  color: var(--fcp-gray-700);
+}
+.matrixFocusLabel strong {
+  color: var(--fcp-ink);
+  font-weight: 700;
+}
+
+/*
+ * Scroller: bounded box (both axes scroll inside) so sticky header (top:0)
+ * and sticky label column (left:0) anchor to the card edges and never bleed.
  */
 .matrixScroller {
   overflow: auto;
@@ -552,7 +605,6 @@
   border-bottom: 1px solid var(--fcp-line-soft);
   white-space: nowrap;
   vertical-align: middle;
-  /* Detail rows render at normal weight; emphasis weight comes from row classes. */
   font-weight: 400;
 }
 .matrixHead {
@@ -574,10 +626,12 @@
   background: var(--fcp-surface);
   text-align: left;
   color: var(--fcp-gray-700);
-  /* Constrain row labels to keep the matrix visually contained. */
-  min-width: 260px;
-  max-width: 340px;
+  /* Label column is firmly contained; long labels truncate with ellipsis. */
+  min-width: 300px;
+  max-width: 380px;
+  /* Stronger boundary so labels never visually bleed into numeric cells. */
   border-right: 1px solid var(--fcp-line);
+  box-shadow: 6px 0 6px -6px rgba(15, 23, 32, 0.12);
 }
 .matrixHead.matrixLabelCol {
   z-index: 3;
@@ -586,10 +640,9 @@
   text-align: right;
   font-family: var(--fcp-font-num);
   font-variant-numeric: tabular-nums;
-  min-width: 92px;
+  min-width: 96px;
   color: var(--fcp-gray-700);
 }
-/* Year subtotal column = a quiet but recognisable separator. */
 .matrixYearCol {
   background: var(--fcp-surface);
   border-left: 1px solid var(--fcp-line-soft);
@@ -598,7 +651,6 @@
   background: var(--fcp-surface);
   color: var(--fcp-gray-700);
 }
-/* Month columns inside an expanded year sit between year boundaries. */
 .matrixMonthCol {
   background: #fcfcfd;
 }
@@ -615,12 +667,37 @@
   color: var(--fcp-ink);
 }
 
-/* Row hierarchy: only emphasis rows carry bold + tinted background. */
+/* Label cell: ellipsis on the label text, tag stays on the right at full width. */
+.matrixTable .labelCell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.matrixTable .labelText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/*
+ * Row hierarchy:
+ *  - section: bold label + tinted background + strong top rule.
+ *  - rowGroupTotal: semibold + clear top rule (Total Administrative / Total Technical /
+ *    Total Marketing / Total Cash flows from investing / financing).
+ *  - rowGroup: normal weight label, no row background tint, quiet.
+ *  - rowClass: normal weight, no tint.
+ *  - bridge rows: net + closing emphasised; opening + fx quiet.
+ */
 .matrixTable .rowSection th.matrixLabelCol,
 .matrixTable .rowSection td {
   background: var(--fcp-surface-3);
   font-weight: 700;
   color: var(--fcp-ink);
+  border-top: 1px solid var(--fcp-line);
+  border-bottom: 1px solid var(--fcp-line);
 }
 .matrixTable .rowGroup th.matrixLabelCol,
 .matrixTable .rowGroup td {
@@ -636,7 +713,7 @@
   background: var(--fcp-surface);
   font-weight: 600;
   color: var(--fcp-ink);
-  border-top: 1px solid var(--fcp-line-soft);
+  border-top: 1px solid var(--fcp-line);
 }
 .matrixTable .rowClass th.matrixLabelCol,
 .matrixTable .rowClass td {
@@ -644,36 +721,43 @@
   color: var(--fcp-gray-700);
   font-weight: 400;
 }
-
-/* Bridge rows separate the cash-balance chain from the line items above. */
 .matrixBridge th.matrixLabelCol,
 .matrixBridge td {
   background: #fafbfc;
   color: var(--fcp-gray-600);
   font-weight: 400;
-  border-top: 1px solid var(--fcp-line-soft);
 }
 .matrixBridgeStrong th.matrixLabelCol,
 .matrixBridgeStrong td {
   background: var(--fcp-surface-3);
   color: var(--fcp-ink);
   font-weight: 700;
+}
+/*
+ * Strong horizontal separators around the cash-balance bridge. The first bridge
+ * row gets a heavier top rule so the chain reads as a distinct band.
+ */
+.matrixBridge:first-of-type th.matrixLabelCol,
+.matrixBridge:first-of-type td,
+.matrixBridgeStrong:first-of-type th.matrixLabelCol,
+.matrixBridgeStrong:first-of-type td {
+  border-top: 2px solid var(--fcp-line);
+}
+.matrixBridgeStrong th.matrixLabelCol,
+.matrixBridgeStrong td {
   border-top: 1px solid var(--fcp-line);
 }
 
-/* Negative cells: parentheses always; red only on emphasised rows. */
+/* Number tones: no red anywhere; muted zeros to quiet the grid. */
 .cellPlain {
   color: inherit;
 }
-.cellNegStrong {
-  color: var(--fcp-unfavorable);
+.cellZero {
+  color: var(--fcp-gray-400);
 }
 
-/* Year header expand/collapse button. */
+/* Year header (compact, clickable to focus). */
 .yearToggle {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
   border: none;
   background: none;
   cursor: pointer;
@@ -686,22 +770,5 @@
 }
 .yearToggle:hover {
   color: var(--fcp-ink);
-}
-.yearToggleCaret {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 16px;
-  height: 16px;
-  border: 1px solid var(--fcp-line);
-  border-radius: 4px;
-  background: var(--fcp-surface);
-  font-size: 12px;
-  line-height: 1;
-  color: var(--fcp-gray-600);
-}
-.yearToggle[aria-expanded="true"] .yearToggleCaret {
-  background: var(--fcp-ink-strong);
-  border-color: var(--fcp-ink-strong);
-  color: #fff;
+  text-decoration: underline;
 }

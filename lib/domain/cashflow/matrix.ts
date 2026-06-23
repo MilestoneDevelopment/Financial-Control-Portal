@@ -108,6 +108,55 @@ export interface MatrixModel {
   rows: MatrixRow[];
 }
 
+/** Default number of years visible in the matrix before older years require manual selection. */
+export const DEFAULT_YEAR_WINDOW_SIZE = 5;
+
+export interface YearWindow {
+  from: number;
+  to: number;
+}
+
+/**
+ * The default visible-year window: the latest N years across the available
+ * years (deduped + sorted). When there are fewer than N years, the window
+ * spans them all. Older years are NOT lost - the caller can widen the window
+ * through the year selector.
+ */
+export function latestYearWindow(
+  years: ReadonlyArray<number>,
+  size: number = DEFAULT_YEAR_WINDOW_SIZE,
+): YearWindow | null {
+  if (years.length === 0 || size < 1) return null;
+  const sorted = [...new Set(years)].sort((a, b) => a - b);
+  const to = sorted[sorted.length - 1];
+  const from = sorted.length <= size ? sorted[0] : sorted[sorted.length - size];
+  return { from, to };
+}
+
+export interface MatrixViewSpec {
+  /** Year-range window applied when no single year is focused. */
+  window: YearWindow;
+  /** When set, only this year is rendered (months + year subtotal). */
+  focusedYear: number | null;
+}
+
+/**
+ * Select which year groups to render. Focused mode wins over the window: a
+ * focused year shows only that year. Otherwise every year inside the inclusive
+ * `from..to` window is included. Pure - the caller decides rendering.
+ */
+export function selectMatrixYears(
+  model: MatrixModel,
+  spec: MatrixViewSpec,
+): MatrixYearGroup[] {
+  if (spec.focusedYear !== null) {
+    return model.years.filter((y) => y.year === spec.focusedYear);
+  }
+  return model.years.filter(
+    (y) => y.year >= spec.window.from && y.year <= spec.window.to,
+  );
+}
+
 const SHORT_MONTH = [
   "Jan", "Feb", "Mar", "Apr", "May", "Jun",
   "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",

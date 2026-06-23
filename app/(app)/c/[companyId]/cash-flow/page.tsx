@@ -240,22 +240,24 @@ export default async function CashFlowPage({
           )}
         </div>
 
-        <div className={styles.coverage}>
-          <div className={styles.coverageCards}>
-            {([
-              ["Total", coverage.total, "default"],
-              ["Included", coverage.included, "ok"],
-              ["Unclassified", coverage.unclassified, coverage.unclassified > 0 ? "warn" : "muted"],
-              ["FX pending", coverage.fxPending, coverage.fxPending > 0 ? "warn" : "muted"],
-              ["Excluded", coverage.excluded, coverage.excluded > 0 ? "warn" : "muted"],
-            ] as const).map(([label, value, tone]) => (
-              <div key={label} className={styles.covCard}>
-                <div className={styles.covValue} data-tone={tone}>[ {value} ]</div>
-                <div className={styles.covLabel}>{label}</div>
-              </div>
-            ))}
+        {viewParam !== "matrix" && (
+          <div className={styles.coverage}>
+            <div className={styles.coverageCards}>
+              {([
+                ["Total", coverage.total, "default"],
+                ["Included", coverage.included, "ok"],
+                ["Unclassified", coverage.unclassified, coverage.unclassified > 0 ? "warn" : "muted"],
+                ["FX pending", coverage.fxPending, coverage.fxPending > 0 ? "warn" : "muted"],
+                ["Excluded", coverage.excluded, coverage.excluded > 0 ? "warn" : "muted"],
+              ] as const).map(([label, value, tone]) => (
+                <div key={label} className={styles.covCard}>
+                  <div className={styles.covValue} data-tone={tone}>[ {value} ]</div>
+                  <div className={styles.covLabel}>{label}</div>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {!hasStructure ? (
           <div className={styles.notice}>
