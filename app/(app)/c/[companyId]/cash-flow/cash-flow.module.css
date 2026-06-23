@@ -8,13 +8,52 @@
 /* ---- Range / period filter ---- */
 .filters {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 10px;
-  align-items: flex-end;
   background: var(--fcp-surface);
   border: 1px solid var(--fcp-line);
   border-radius: var(--fcp-radius-card);
-  padding: 14px 16px;
+  padding: 12px 16px;
+}
+.filterFields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: flex-end;
+}
+.viewSwitch {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--fcp-line);
+  border-radius: 6px;
+  overflow: hidden;
+  background: #fff;
+}
+.viewBtn {
+  border: none;
+  background: transparent;
+  font-family: var(--fcp-font-ui);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  padding: 7px 14px;
+  color: var(--fcp-gray-500);
+  cursor: pointer;
+}
+.viewBtn + .viewBtn {
+  border-left: 1px solid var(--fcp-line);
+}
+.viewBtn:hover:not(:disabled) {
+  background: var(--fcp-surface-3);
+  color: var(--fcp-gray-700);
+}
+.viewBtn[data-active="true"] {
+  background: var(--fcp-ink-strong);
+  color: #fff;
+}
+.viewBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 .field {
   display: flex;
@@ -115,6 +154,31 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--fcp-gray-500);
+}
+.setupHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.setupCollapsed {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+}
+.linkBtn {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--fcp-gray-500);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 4px;
+}
+.linkBtn:hover {
+  color: var(--fcp-ink);
 }
 .setupForm {
   display: flex;
@@ -459,4 +523,101 @@
   padding: 22px 8px;
   font-size: 13px;
   color: var(--fcp-gray-500);
+}
+
+/* ---- Matrix view ---- */
+.matrixScroller {
+  overflow-x: auto;
+  border-top: 1px solid var(--fcp-line-soft);
+  margin: 0 -14px -10px;
+  padding: 0 14px 10px;
+}
+.matrixTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-size: 12px;
+  width: max-content;
+  min-width: 100%;
+}
+.matrixTable th,
+.matrixTable td {
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--fcp-line-soft);
+  white-space: nowrap;
+  vertical-align: middle;
+}
+.matrixHead {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--fcp-surface);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fcp-gray-400);
+  font-weight: 600;
+  border-bottom: 1px solid var(--fcp-line);
+}
+.matrixLabelCol {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--fcp-surface);
+  text-align: left;
+  font-weight: 500;
+  color: var(--fcp-gray-700);
+  min-width: 280px;
+  border-right: 1px solid var(--fcp-line);
+}
+.matrixHead.matrixLabelCol {
+  z-index: 3;
+}
+.matrixAmountCol {
+  text-align: right;
+  font-family: var(--fcp-font-num);
+  font-variant-numeric: tabular-nums;
+  min-width: 96px;
+}
+.matrixAmountCol[data-negative="true"] {
+  color: var(--fcp-unfavorable);
+}
+.matrixTotalCol {
+  background: var(--fcp-surface-3);
+  border-left: 1px solid var(--fcp-line);
+  font-weight: 600;
+  color: var(--fcp-ink);
+}
+.matrixHead.matrixTotalCol {
+  background: var(--fcp-surface-3);
+}
+/* Section/group/class rows inherit existing rowSection/rowGroup/rowClass
+   weights; the sticky left column keeps its own background to stay readable
+   when scrolled. */
+.matrixTable .rowSection th.matrixLabelCol,
+.matrixTable .rowSection td {
+  background: var(--fcp-surface-3);
+  font-weight: 700;
+  color: var(--fcp-ink);
+}
+.matrixTable .rowGroup th.matrixLabelCol {
+  font-weight: 600;
+  color: var(--fcp-gray-700);
+  background: var(--fcp-surface);
+}
+.matrixTable .rowClass th.matrixLabelCol {
+  background: var(--fcp-surface);
+}
+/* Bridge rows: separated visually from the rolled-up statement above. */
+.matrixBridge th.matrixLabelCol,
+.matrixBridge td {
+  background: #fafbfc;
+  color: var(--fcp-gray-600);
+  border-top: 1px solid var(--fcp-line-soft);
+}
+.matrixBridgeStrong th.matrixLabelCol,
+.matrixBridgeStrong td {
+  background: var(--fcp-surface-3);
+  color: var(--fcp-ink);
+  font-weight: 700;
+  border-top: 1px solid var(--fcp-line);
 }

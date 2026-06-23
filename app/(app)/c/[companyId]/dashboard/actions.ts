@@ -72,7 +72,12 @@ export async function createPeriodAction(input: {
     opening_balance: prior?.closing_balance ?? null,
     opening_balance_source: prior ? "carried" : null,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (error.code === "23505") {
+      throw new Error("This period already exists.");
+    }
+    throw new Error(error.message);
+  }
   await logAudit(supabase, {
     orgId,
     companyId: input.companyId,

@@ -29,15 +29,55 @@ function useRun() {
   return { pending, error, run };
 }
 
-/** Compact create-a-period control (capability: period.approve_lock). */
-export function CreatePeriodForm({ companyId }: { companyId: string }) {
+/**
+ * Compact create-a-period control (capability: period.approve_lock).
+ *
+ * Once periods exist, this card collapses to a single "Add another period"
+ * button so the page does not lead with setup ergonomics. Expand on demand.
+ */
+export function CreatePeriodForm({
+  companyId,
+  hasAnyPeriod,
+}: {
+  companyId: string;
+  hasAnyPeriod: boolean;
+}) {
   const { pending, error, run } = useRun();
   const [year, setYear] = useState<string>("2026");
   const [month, setMonth] = useState<string>(""); // "" = full year
+  // Collapse setup card when periods already exist; user opts in to reveal.
+  const [expanded, setExpanded] = useState<boolean>(!hasAnyPeriod);
+
+  if (!expanded) {
+    return (
+      <div className={`${styles.setupCard} ${styles.setupCollapsed}`}>
+        <span className={styles.setupTitle}>Period setup</span>
+        <button
+          type="button"
+          className={styles.btnSmGhost}
+          onClick={() => setExpanded(true)}
+        >
+          Add another period
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.setupCard}>
-      <div className={styles.setupTitle}>Period setup</div>
+      <div className={styles.setupHeader}>
+        <span className={styles.setupTitle}>Period setup</span>
+        {hasAnyPeriod && (
+          <button
+            type="button"
+            className={styles.linkBtn}
+            onClick={() => setExpanded(false)}
+            disabled={pending}
+          >
+            Hide
+          </button>
+        )}
+      </div>
       <form
         className={styles.setupForm}
         onSubmit={(e) => {

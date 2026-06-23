@@ -76,6 +76,34 @@ export async function listCashFlowTransactions(
   }));
 }
 
+/**
+ * Group transactions across a range into per-period buckets keyed by period id.
+ * One DB round-trip spanning the union range; in-memory bucketing assumes the
+ * provided periods do not overlap (accounting periods never overlap). Periods
+ * with no transactions get an empty bucket so callers can iterate uniformly.
+ */
+export async function listCashFlowTransactionsByPeriod(
+  companyId: string,
+  periods: ReadonlyArray<{ id: string; dateFrom: string; dateTo: string }>,
+): Promise<Map<string, CashFlowTxnRow[]>> {
+  const result = new Map<string, CashFlowTxnRow[]>();
+  for (const p of periods) result.set(p.id, []);
+  if (periods.length === 0) return result;
+  const dateFrom = periods.reduce((a, p) => (p.dateFrom < a ? p.dateFrom : a), periods[0].dateFrom);
+  const dateTo = periods.reduce((a, p) => (p.dateTo > a ? p.dateTo : a), periods[0].dateTo);
+  const all = await listCashFlowTransactions(companyId, { dateFrom, dateTo });
+  for (const t of all) {
+    if (!t.date) continue;
+    for (const p of periods) {
+      if (t.date >= p.dateFrom && t.date <= p.dateTo) {
+        result.get(p.id)!.push(t);
+        break;
+      }
+    }
+  }
+  return result;
+}
+
 export interface CashFlowPeriodOption {
   id: string;
   label: string;

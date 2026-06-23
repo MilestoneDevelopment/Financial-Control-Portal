@@ -8,10 +8,12 @@ import { PERIOD_STATUS_LABEL } from "@/lib/domain/period/lifecycle";
 import {
   listCashFlowNodes,
   listCashFlowTransactions,
+  listCashFlowTransactionsByPeriod,
   listCashFlowPeriods,
   type CashFlowDateRange,
 } from "@/lib/data/cashflow";
 import { buildCashFlowTree, computeClosingBalance } from "@/lib/domain/cashflow/generate";
+import { buildCashFlowMatrix, type MatrixPeriodInput } from "@/lib/domain/cashflow/matrix";
 import { summarizeCashFlowCoverage, type CashFlowCoverageFact } from "@/lib/domain/cashflow/coverage";
 import { formatCashFlowRows } from "@/lib/domain/cashflow/format";
 import {
@@ -24,8 +26,9 @@ import {
   type OpeningResolution,
   type PeriodStatus,
 } from "@/lib/domain/cashflow/periods";
-import { CashFlowFilters } from "./CashFlowFilters";
+import { CashFlowFilters, type CashFlowView } from "./CashFlowFilters";
 import { CreatePeriodForm, OpeningBalanceForm } from "./PeriodControls";
+import { MatrixTable } from "./MatrixTable";
 import styles from "./cash-flow.module.css";
 
 export const dynamic = "force-dynamic";
@@ -46,11 +49,13 @@ export default async function CashFlowPage({
   const fromParam = one(sp.from);
   const toParam = one(sp.to);
   const periodIdParam = one(sp.periodId);
+  const viewParam: CashFlowView = one(sp.view) === "matrix" ? "matrix" : "statement";
 
   let canReview = false;
   let canManagePeriods = false;
   let canSetOpening = false;
   let hasStructure = false;
+  let hasAnyPeriod = false;
   let periods: { id: string; label: string }[] = [];
   let roots: ReturnType<typeof buildCashFlowTree>["roots"] = [];
   let rows: ReturnType<typeof formatCashFlowRows> = [];
@@ -58,6 +63,7 @@ export default async function CashFlowPage({
   let coverage = summarizeCashFlowCoverage([]);
   let scopeLabel = "All transactions";
   let usingDateRange = true;
+  let matrix: ReturnType<typeof buildCashFlowMatrix> | null = null;
 
   // Period-aware state (only populated when a period is selected).
   let inPeriodMode = false;
@@ -80,9 +86,56 @@ export default async function CashFlowPage({
 
     const allPeriods = await listCashFlowPeriods(companyId);
     periods = allPeriods.map((p) => ({ id: p.id, label: p.label }));
+    hasAnyPeriod = allPeriods.length > 0;
 
     const nodes = await listCashFlowNodes(companyId);
     hasStructure = nodes.some((n) => n.kind === "section");
+
+    if (viewParam === "matrix" && hasStructure) {
+      // Matrix view: one column per monthly period, chronological. Year-level
+      // (month=null) periods are excluded - the matrix is month-by-month by design.
+      const monthly = allPeriods
+        .filter((p) => p.month !== null)
+        .slice()
+        .sort((a, b) => (a.year !== b.year ? a.year - b.year : (a.month ?? 0) - (b.month ?? 0)));
+      const matrixPeriods: MatrixPeriodInput[] = monthly.map((p) => ({
+        id: p.id,
+        year: p.year,
+        month: p.month,
+        label: p.label,
+        openingBalance: p.openingBalance,
+        fxFluctuations: p.fxFluctuations,
+        storedClosingBalance: p.closingBalance,
+      }));
+      const txnsByPeriod = await listCashFlowTransactionsByPeriod(
+        companyId,
+        monthly.map((p) => ({ id: p.id, dateFrom: p.dateFrom, dateTo: p.dateTo })),
+      );
+      matrix = buildCashFlowMatrix(nodes, matrixPeriods, txnsByPeriod);
+      scopeLabel = monthly.length > 0
+        ? `${monthly[0].label} - ${monthly[monthly.length - 1].label}`
+        : "No monthly periods";
+      // Coverage in matrix mode reflects all transactions in the matrix range so
+      // the cards still answer "what is not in the statement?".
+      const dateFrom = monthly[0]?.dateFrom;
+      const dateTo = monthly[monthly.length - 1]?.dateTo;
+      const allTxns = dateFrom && dateTo
+        ? await listCashFlowTransactions(companyId, { dateFrom, dateTo })
+        : [];
+      const dirByIdM = new Map(
+        nodes.filter((n) => n.kind === "class").map((n) => [n.id, n.cashDirection]),
+      );
+      const factsM: CashFlowCoverageFact[] = allTxns.map((t) => ({
+        id: t.id,
+        classId: t.classId,
+        status: t.status,
+        source: t.source,
+        amountGel: t.amountGel,
+        fxStatus: t.fxStatus,
+        classDirection: t.classId ? dirByIdM.get(t.classId) ?? null : null,
+      }));
+      coverage = summarizeCashFlowCoverage(factsM);
+    }
 
     // Resolve the scope: a selected period wins over a manual date range.
     let range: CashFlowDateRange = {};
@@ -103,27 +156,30 @@ export default async function CashFlowPage({
       if (fromParam || toParam) scopeLabel = `${fromParam || "start"} to ${toParam || "latest"}`;
     }
 
-    const txns = await listCashFlowTransactions(companyId, range);
-    const statement = buildCashFlowTree(nodes, txns);
-    roots = statement.roots;
-    net = statement.net;
-    rows = formatCashFlowRows(statement);
+    // Statement-mode aggregation (matrix mode already populated its own coverage).
+    if (viewParam !== "matrix") {
+      const txns = await listCashFlowTransactions(companyId, range);
+      const statement = buildCashFlowTree(nodes, txns);
+      roots = statement.roots;
+      net = statement.net;
+      rows = formatCashFlowRows(statement);
 
-    const dirById = new Map(
-      nodes.filter((n) => n.kind === "class").map((n) => [n.id, n.cashDirection]),
-    );
-    const facts: CashFlowCoverageFact[] = txns.map((t) => ({
-      id: t.id,
-      classId: t.classId,
-      status: t.status,
-      source: t.source,
-      amountGel: t.amountGel,
-      fxStatus: t.fxStatus,
-      classDirection: t.classId ? dirById.get(t.classId) ?? null : null,
-    }));
-    coverage = summarizeCashFlowCoverage(facts);
+      const dirById = new Map(
+        nodes.filter((n) => n.kind === "class").map((n) => [n.id, n.cashDirection]),
+      );
+      const facts: CashFlowCoverageFact[] = txns.map((t) => ({
+        id: t.id,
+        classId: t.classId,
+        status: t.status,
+        source: t.source,
+        amountGel: t.amountGel,
+        fxStatus: t.fxStatus,
+        classDirection: t.classId ? dirById.get(t.classId) ?? null : null,
+      }));
+      coverage = summarizeCashFlowCoverage(facts);
+    }
 
-    if (activePeriod) {
+    if (activePeriod && viewParam !== "matrix") {
       // Carried opening candidate = the previous period's closing, computed live
       // (prev opening + prev net). Only knowable when the previous period itself
       // has an opening balance; otherwise no candidate (never invented).
@@ -165,10 +221,10 @@ export default async function CashFlowPage({
         <CashFlowFilters
           companyId={companyId}
           periods={periods}
-          current={{ from: fromParam, to: toParam, periodId: periodIdParam }}
+          current={{ from: fromParam, to: toParam, periodId: periodIdParam, view: viewParam }}
         />
 
-        {canManagePeriods && <CreatePeriodForm companyId={companyId} />}
+        {canManagePeriods && <CreatePeriodForm companyId={companyId} hasAnyPeriod={hasAnyPeriod} />}
 
         <div className={styles.scopeRow}>
           <span className={styles.rangeHint}>
@@ -205,6 +261,15 @@ export default async function CashFlowPage({
           <div className={styles.notice}>
             No active cash flow structure for this company yet. Build the Section / Group / Class
             structure first, then generate the statement.
+          </div>
+        ) : viewParam === "matrix" ? (
+          <div className={styles.statementCard}>
+            <div className={styles.cardTitle}>Matrix</div>
+            {matrix ? (
+              <MatrixTable model={matrix} />
+            ) : (
+              <div className={styles.empty}>No matrix data.</div>
+            )}
           </div>
         ) : (
           <>

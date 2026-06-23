@@ -63,7 +63,7 @@ export async function createPeriodAction(input: {
   });
   if (error) {
     if (error.code === "23505") {
-      throw new Error("A period for that year/month already exists.");
+      throw new Error("This period already exists.");
     }
     throw new Error(error.message);
   }
