@@ -32,48 +32,69 @@ const NODES: CashFlowNode[] = [
   node({ id: "borrow", kind: "class", label: "Borrowings", parentId: "s2", cashDirection: "both" }),
 ];
 
+// Two years: 2025 (3 months) + 2026 (2 months).
 const PERIODS: MatrixPeriodInput[] = [
-  { id: "p1", year: 2026, month: 1, label: "Jan 2026", openingBalance: 1000, fxFluctuations: -10, storedClosingBalance: null },
-  { id: "p2", year: 2026, month: 2, label: "Feb 2026", openingBalance: null, fxFluctuations: 5, storedClosingBalance: null },
-  { id: "p3", year: 2026, month: 3, label: "Mar 2026", openingBalance: null, fxFluctuations: 0, storedClosingBalance: 1234.56 },
+  { id: "p25jan", year: 2025, month: 1, label: "Jan 2025", openingBalance: 1000, fxFluctuations: -10, storedClosingBalance: null },
+  { id: "p25feb", year: 2025, month: 2, label: "Feb 2025", openingBalance: null, fxFluctuations: 5, storedClosingBalance: null },
+  { id: "p25mar", year: 2025, month: 3, label: "Mar 2025", openingBalance: null, fxFluctuations: 0, storedClosingBalance: 1234.56 },
+  { id: "p26jan", year: 2026, month: 1, label: "Jan 2026", openingBalance: 2000, fxFluctuations: -20, storedClosingBalance: null },
+  { id: "p26feb", year: 2026, month: 2, label: "Feb 2026", openingBalance: null, fxFluctuations: 0, storedClosingBalance: 3000 },
 ];
 
 const TXNS = new Map<string, CashFlowTxn[]>([
-  ["p1", [
+  ["p25jan", [
     txn({ id: "t1", classId: "land", amountGel: 500 }),
     txn({ id: "t2", classId: "sal", amountGel: 200 }),
     txn({ id: "t3", classId: "borrow", amountGel: 1000 }), // both -> +1000
   ]],
-  ["p2", [
+  ["p25feb", [
     txn({ id: "t4", classId: "land", amountGel: 800 }),
-    txn({ id: "t5", classId: "borrow", amountGel: -300 }), // both -> -300 (repayment)
+    txn({ id: "t5", classId: "borrow", amountGel: -300 }),
   ]],
-  ["p3", [
+  ["p25mar", [
     txn({ id: "t6", classId: "sal", amountGel: 100 }),
+  ]],
+  ["p26jan", [
+    txn({ id: "t7", classId: "land", amountGel: 400 }),
+  ]],
+  ["p26feb", [
+    txn({ id: "t8", classId: "sal", amountGel: 50 }),
+    txn({ id: "t9", classId: "borrow", amountGel: 250 }),
   ]],
 ]);
 
-test("buildCashFlowMatrix: produces one cell per period plus a Total column for line items", () => {
+test("buildCashFlowMatrix: groups months into year buckets in chronological order", () => {
   const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
-  assert.equal(m.periods.length, 3);
-  // First row is the section header "Operations".
-  const opsSection = m.rows.find((r) => r.kind === "section" && r.label === "Operations");
-  assert.ok(opsSection);
-  // Operations = land(+) + sal(-): Jan = 500 - 200 = 300, Feb = 800 - 0 = 800, Mar = 0 - 100 = -100. Total = 1000.
-  assert.deepEqual(opsSection!.cells.map((c) => c.value), [300, 800, -100]);
-  assert.equal(opsSection!.total.value, 1000);
+  assert.deepEqual(m.years.map((y) => y.year), [2025, 2026]);
+  assert.deepEqual(m.years[0].months.map((mm) => mm.label), ["Jan", "Feb", "Mar"]);
+  assert.deepEqual(m.years[1].months.map((mm) => mm.label), ["Jan", "Feb"]);
+  // Full labels preserved for tooltips / accessibility.
+  assert.equal(m.years[0].months[0].fullLabel, "Jan 2025");
 });
 
-test("buildCashFlowMatrix: 'Total ...' group renders as footer subtotal after children", () => {
+test("buildCashFlowMatrix: line-item year subtotals + grand total sum monthly cells", () => {
   const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
-  // Within rows, "Salaries" (class child) must appear before "Total Expenses" (footer).
-  const idxSalaries = m.rows.findIndex((r) => r.label === "Salaries");
-  const idxTotalExpenses = m.rows.findIndex((r) => r.label === "Total Expenses" && r.isTotal);
-  assert.ok(idxSalaries >= 0 && idxTotalExpenses > idxSalaries);
-  // Total Expenses cells = -200, 0, -100, total = -300.
-  const te = m.rows[idxTotalExpenses];
-  assert.deepEqual(te.cells.map((c) => c.value), [-200, 0, -100]);
-  assert.equal(te.total.value, -300);
+  // Operations section: land(+) + sal(-).
+  // 2025: Jan 500-200=300, Feb 800-0=800, Mar 0-100=-100 -> year sum 1000.
+  // 2026: Jan 400-0=400, Feb 0-50=-50 -> year sum 350. Grand total = 1350.
+  const ops = m.rows.find((r) => r.kind === "section" && r.label === "Operations");
+  assert.ok(ops);
+  assert.deepEqual(ops!.byYear[0].months.map((c) => c.value), [300, 800, -100]);
+  assert.equal(ops!.byYear[0].total.value, 1000);
+  assert.deepEqual(ops!.byYear[1].months.map((c) => c.value), [400, -50]);
+  assert.equal(ops!.byYear[1].total.value, 350);
+  assert.equal(ops!.total.value, 1350);
+});
+
+test("buildCashFlowMatrix: 'Total ...' footer subtotal renders after children", () => {
+  const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
+  const idxSal = m.rows.findIndex((r) => r.label === "Salaries");
+  const idxTotalExp = m.rows.findIndex((r) => r.label === "Total Expenses" && r.isTotal);
+  assert.ok(idxSal >= 0 && idxTotalExp > idxSal);
+  const te = m.rows[idxTotalExp];
+  // Salaries is "out": Jan -200, Feb 0, Mar -100 (year sum -300); Jan26 0, Feb26 -50 (year sum -50).
+  assert.deepEqual(te.byYear[0].months.map((c) => c.value), [-200, 0, -100]);
+  assert.equal(te.byYear[0].total.value, -300);
   assert.equal(te.emphasis, true);
 });
 
@@ -82,72 +103,80 @@ test("buildCashFlowMatrix: bidirectional 'both' class preserves sign in each col
   const borrow = m.rows.find((r) => r.label === "Borrowings");
   assert.ok(borrow);
   assert.equal(borrow!.direction, "both");
-  // Jan = +1000, Feb = -300, Mar = 0; total = 700.
-  assert.deepEqual(borrow!.cells.map((c) => c.value), [1000, -300, 0]);
-  assert.equal(borrow!.total.value, 700);
+  assert.deepEqual(borrow!.byYear[0].months.map((c) => c.value), [1000, -300, 0]);
+  assert.equal(borrow!.byYear[0].total.value, 700);
+  assert.deepEqual(borrow!.byYear[1].months.map((c) => c.value), [0, 250]);
+  assert.equal(borrow!.byYear[1].total.value, 250);
+  assert.equal(borrow!.total.value, 950);
 });
 
-test("buildCashFlowMatrix: bridge rows - opening, net, fx, closing", () => {
+test("buildCashFlowMatrix: bridge-opening - first month of year; grand total dash", () => {
   const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
-  const opening = m.rows.find((r) => r.kind === "bridge-opening")!;
+  const open = m.rows.find((r) => r.kind === "bridge-opening")!;
+  assert.deepEqual(open.byYear[0].months.map((c) => c.value), [1000, null, null]);
+  // Year total = first non-null opening of that year.
+  assert.equal(open.byYear[0].total.value, 1000);
+  assert.equal(open.byYear[1].total.value, 2000);
+  // Grand total = dash (summing openings would mislead).
+  assert.equal(open.total.value, null);
+  assert.equal(open.total.text, "-");
+});
+
+test("buildCashFlowMatrix: bridge-net + bridge-fx - year sums + grand total sum", () => {
+  const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
   const net = m.rows.find((r) => r.kind === "bridge-net")!;
   const fx = m.rows.find((r) => r.kind === "bridge-fx")!;
-  const closing = m.rows.find((r) => r.kind === "bridge-closing")!;
-
-  // Opening row: per-period values verbatim; Total column is a dash (not summed).
-  assert.deepEqual(opening.cells.map((c) => c.value), [1000, null, null]);
-  assert.equal(opening.total.value, null);
-  assert.equal(opening.total.text, "-");
-
-  // Net cash change = section sums per period. Operations = 300/800/-100; Financing = 1000/-300/0.
-  // -> 1300, 500, -100; total = 1700.
-  assert.deepEqual(net.cells.map((c) => c.value), [1300, 500, -100]);
-  assert.equal(net.total.value, 1700);
-
-  // FX row: per-period verbatim, summed in Total.
-  assert.deepEqual(fx.cells.map((c) => c.value), [-10, 5, 0]);
-  assert.equal(fx.total.value, -5);
-
-  // Closing per period: opening + net + fx when opening is known. Jan = 1000 + 1300 - 10 = 2290.
-  // Feb: opening is null -> closing null. Mar: stored = 1234.56 wins.
-  assert.deepEqual(closing.cells.map((c) => c.value), [2290, null, 1234.56]);
-  // Total column = last visible period's closing (carry, not sum).
-  assert.equal(closing.total.value, 1234.56);
+  // 2025 net: 1300, 500, -100 = 1700; 2026 net: 400, 200 = 600; grand 2300.
+  assert.deepEqual(net.byYear[0].months.map((c) => c.value), [1300, 500, -100]);
+  assert.equal(net.byYear[0].total.value, 1700);
+  assert.deepEqual(net.byYear[1].months.map((c) => c.value), [400, 200]);
+  assert.equal(net.byYear[1].total.value, 600);
+  assert.equal(net.total.value, 2300);
+  // 2025 fx: -10 + 5 + 0 = -5; 2026 fx: -20 + 0 = -20; grand -25.
+  assert.equal(fx.byYear[0].total.value, -5);
+  assert.equal(fx.byYear[1].total.value, -20);
+  assert.equal(fx.total.value, -25);
 });
 
-test("buildCashFlowMatrix: empty periods -> no columns, no rows", () => {
-  const m = buildCashFlowMatrix(NODES, [], new Map());
-  assert.equal(m.periods.length, 0);
-  assert.equal(m.rows.length, 0);
-});
-
-test("buildCashFlowMatrix: amounts render with accounting parentheses for negatives", () => {
+test("buildCashFlowMatrix: bridge-closing - last month of year; grand = last visible", () => {
   const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
-  const expensesTotal = m.rows.find((r) => r.label === "Total Expenses" && r.isTotal)!;
-  // Jan cell = -200 -> "(200.00)"
-  assert.equal(expensesTotal.cells[0].text, "(200.00)");
-  assert.equal(expensesTotal.cells[0].negative, true);
-  // Feb cell = 0 -> "0.00", not negative.
-  assert.equal(expensesTotal.cells[1].text, "0.00");
-  assert.equal(expensesTotal.cells[1].negative, false);
-  // Total = -300 -> "(300.00)"
-  assert.equal(expensesTotal.total.text, "(300.00)");
+  const close = m.rows.find((r) => r.kind === "bridge-closing")!;
+  // Jan 2025 closing = 1000 + 1300 - 10 = 2290. Feb 2025 opening null -> closing null.
+  // Mar 2025: stored closing 1234.56 wins.
+  assert.deepEqual(close.byYear[0].months.map((c) => c.value), [2290, null, 1234.56]);
+  // Year total = last non-null closing of the year.
+  assert.equal(close.byYear[0].total.value, 1234.56);
+  // 2026: Jan 2026 closing = 2000 + 400 - 20 = 2380; Feb 2026 stored 3000 wins.
+  assert.equal(close.byYear[1].total.value, 3000);
+  // Grand total = last visible period's closing.
+  assert.equal(close.total.value, 3000);
 });
 
-test("buildCashFlowMatrix: row order is deterministic across periods (uses one shared walk)", () => {
+test("buildCashFlowMatrix: accounting parentheses for negatives", () => {
+  const m = buildCashFlowMatrix(NODES, PERIODS, TXNS);
+  const te = m.rows.find((r) => r.label === "Total Expenses" && r.isTotal)!;
+  assert.equal(te.byYear[0].months[0].text, "(200.00)");
+  assert.equal(te.byYear[0].months[0].negative, true);
+  assert.equal(te.byYear[0].months[1].text, "0.00");
+  assert.equal(te.byYear[0].months[1].negative, false);
+  assert.equal(te.byYear[0].total.text, "(300.00)");
+});
+
+test("buildCashFlowMatrix: row shape is deterministic across periods", () => {
   const m1 = buildCashFlowMatrix(NODES, PERIODS, TXNS);
-  // Re-run with empty txn map; the shape (keys, depths) must match.
-  const empty = new Map([["p1", []], ["p2", []], ["p3", []]]);
+  const empty = new Map(PERIODS.map((p) => [p.id, []]));
   const m2 = buildCashFlowMatrix(NODES, PERIODS, empty);
   assert.deepEqual(m1.rows.map((r) => r.key), m2.rows.map((r) => r.key));
   assert.deepEqual(m1.rows.map((r) => r.depth), m2.rows.map((r) => r.depth));
-  // And the empty matrix is genuinely empty for line items.
-  const opsEmpty = m2.rows.find((r) => r.kind === "section" && r.label === "Operations")!;
-  assert.deepEqual(opsEmpty.cells.map((c) => c.value), [0, 0, 0]);
-  assert.equal(opsEmpty.total.value, 0);
 });
 
-test("buildCashFlowMatrix: prefers stored closing balance when present", () => {
+test("buildCashFlowMatrix: empty periods -> no years, no rows", () => {
+  const m = buildCashFlowMatrix(NODES, [], new Map());
+  assert.equal(m.years.length, 0);
+  assert.equal(m.rows.length, 0);
+});
+
+test("buildCashFlowMatrix: prefers stored closing balance over computed", () => {
   const periods: MatrixPeriodInput[] = [
     { id: "p", year: 2026, month: 5, label: "May 2026", openingBalance: 100, fxFluctuations: -50, storedClosingBalance: 999 },
   ];
@@ -156,5 +185,18 @@ test("buildCashFlowMatrix: prefers stored closing balance when present", () => {
   ]]]));
   const closing = m.rows.find((r) => r.kind === "bridge-closing")!;
   // Computed would be 100 + 500 - 50 = 550, but stored 999 wins.
-  assert.equal(closing.cells[0].value, 999);
+  assert.equal(closing.byYear[0].months[0].value, 999);
+});
+
+test("buildCashFlowMatrix: year-level periods (month=null) are excluded", () => {
+  const periods: MatrixPeriodInput[] = [
+    ...PERIODS,
+    { id: "fy25", year: 2025, month: null, label: "FY2025", openingBalance: 0, fxFluctuations: 0, storedClosingBalance: null },
+  ];
+  const txns = new Map(TXNS);
+  txns.set("fy25", []);
+  const m = buildCashFlowMatrix(NODES, periods, txns);
+  // Only monthly periods are bucketed; FY2025 is dropped.
+  assert.equal(m.years[0].months.length, 3);
+  assert.equal(m.years[1].months.length, 2);
 });
