@@ -348,6 +348,22 @@ export default async function CashFlowPage({
             matrix: matrixParam,
             matrixShowZero: showZeroParam === "1",
           }}
+          meta={{
+            scopeLabel: viewParam === "matrix" ? `Range: ${scopeLabel}` : scopeLabel,
+            periodStatusLabel:
+              viewParam !== "matrix" && inPeriodMode && periodStatus
+                ? PERIOD_STATUS_LABEL[periodStatus]
+                : null,
+            dataQuality:
+              viewParam !== "matrix"
+                ? {
+                    unclassified: coverage.unclassified,
+                    fxPending: coverage.fxPending,
+                    excluded: coverage.excluded,
+                  }
+                : null,
+            zeroLinesShown: viewParam === "matrix" ? showZeroParam === "1" : showZeroResolved,
+          }}
         />
 
         {!hasAnyPeriod && hasStructure && canManagePeriods && (
@@ -359,51 +375,6 @@ export default async function CashFlowPage({
               </Link>
               .
             </span>
-          </div>
-        )}
-
-        <div className={styles.scopeRow}>
-          <span className={styles.rangeHint}>{scopeLabel}</span>
-          {inPeriodMode && periodStatus && (
-            <span className={styles.periodStatusNote}>
-              Period status: {PERIOD_STATUS_LABEL[periodStatus]}
-            </span>
-          )}
-        </div>
-
-        {viewParam !== "matrix" && (
-          <div className={styles.dataQuality}>
-            <span className={styles.dqLabel}>Data quality</span>
-            {coverage.unclassified === 0 && coverage.fxPending === 0 && coverage.excluded === 0 ? (
-              <span className={styles.dqOk}>All transactions classified</span>
-            ) : (
-              <>
-                {coverage.unclassified > 0 && (
-                  <span
-                    className={styles.dqWarn}
-                    title="Transactions with no cash flow line assigned."
-                  >
-                    Unclassified [ {coverage.unclassified} ]
-                  </span>
-                )}
-                {coverage.fxPending > 0 && (
-                  <span
-                    className={styles.dqWarn}
-                    title="Foreign-currency transactions waiting for an exchange rate. Not yet included in totals."
-                  >
-                    FX pending [ {coverage.fxPending} ]
-                  </span>
-                )}
-                {coverage.excluded > 0 && (
-                  <span
-                    className={styles.dqWarn}
-                    title="Not included: needs review, has no amount, or is a non-cash line."
-                  >
-                    Excluded [ {coverage.excluded} ]
-                  </span>
-                )}
-              </>
-            )}
           </div>
         )}
 

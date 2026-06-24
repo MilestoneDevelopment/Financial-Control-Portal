@@ -46,6 +46,14 @@ const MATRIX_TABS: { key: MatrixMode; label: string }[] = [
   { key: "month", label: "Month" },
 ];
 
+/** Compact contextual meta shown on the right of the toolbar (no duplicate lines below). */
+export interface ReportMeta {
+  scopeLabel: string;
+  periodStatusLabel: string | null;
+  dataQuality: { unclassified: number; fxPending: number; excluded: number } | null;
+  zeroLinesShown: boolean;
+}
+
 /**
  * Cash-flow report controls: a Statement / Matrix view switch and, in Statement
  * mode, a reporting-scope selector (Month / Quarter / Half-year / FY / Custom).
@@ -57,11 +65,13 @@ export function CashFlowFilters({
   periods,
   years,
   current,
+  meta,
 }: {
   companyId: string;
   periods: PeriodChoice[];
   years: number[];
   current: Current;
+  meta: ReportMeta;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -122,6 +132,7 @@ export function CashFlowFilters({
 
   return (
     <div className={styles.filters}>
+      <div className={styles.controlsGroup}>
       <div className={styles.viewSwitch} role="tablist" aria-label="View mode">
         <button
           type="button"
@@ -340,6 +351,49 @@ export function CashFlowFilters({
           </div>
         </>
       )}
+      </div>
+
+      <div className={styles.toolbarMeta}>
+        <span className={styles.metaScope}>{meta.scopeLabel}</span>
+        <div className={styles.metaChips}>
+          {meta.periodStatusLabel && (
+            <span className={styles.metaChip}>Period status: {meta.periodStatusLabel}</span>
+          )}
+          {meta.dataQuality &&
+            (meta.dataQuality.unclassified === 0 &&
+            meta.dataQuality.fxPending === 0 &&
+            meta.dataQuality.excluded === 0 ? (
+              <span className={styles.metaOk}>Data quality: All transactions classified</span>
+            ) : (
+              <>
+                {meta.dataQuality.unclassified > 0 && (
+                  <span className={styles.dqWarn} title="Transactions with no cash flow line assigned.">
+                    Unclassified [ {meta.dataQuality.unclassified} ]
+                  </span>
+                )}
+                {meta.dataQuality.fxPending > 0 && (
+                  <span
+                    className={styles.dqWarn}
+                    title="Foreign-currency transactions waiting for an exchange rate. Not yet included in totals."
+                  >
+                    FX pending [ {meta.dataQuality.fxPending} ]
+                  </span>
+                )}
+                {meta.dataQuality.excluded > 0 && (
+                  <span
+                    className={styles.dqWarn}
+                    title="Not included: needs review, has no amount, or is a non-cash line."
+                  >
+                    Excluded [ {meta.dataQuality.excluded} ]
+                  </span>
+                )}
+              </>
+            ))}
+          <span className={styles.metaChip}>
+            Zero lines: {meta.zeroLinesShown ? "Shown" : "Hidden"}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
