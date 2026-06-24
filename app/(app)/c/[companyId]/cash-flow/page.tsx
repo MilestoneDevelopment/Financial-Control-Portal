@@ -27,7 +27,7 @@ import {
   type PeriodStatus,
 } from "@/lib/domain/cashflow/periods";
 import { CashFlowFilters, type CashFlowView } from "./CashFlowFilters";
-import { CreatePeriodForm, OpeningBalanceForm } from "./PeriodControls";
+import { OpeningBalanceForm } from "./PeriodControls";
 import { MatrixTable } from "./MatrixTable";
 import styles from "./cash-flow.module.css";
 
@@ -51,7 +51,6 @@ export default async function CashFlowPage({
   const periodIdParam = one(sp.periodId);
   const viewParam: CashFlowView = one(sp.view) === "matrix" ? "matrix" : "statement";
 
-  let canReview = false;
   let canManagePeriods = false;
   let canSetOpening = false;
   let hasStructure = false;
@@ -76,11 +75,9 @@ export default async function CashFlowPage({
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
     const caps = await capabilityMap(supabase, companyId, [
-      "classification.review",
       "period.approve_lock",
       "period.set_opening_balance",
     ]);
-    canReview = caps["classification.review"];
     canManagePeriods = caps["period.approve_lock"];
     canSetOpening = caps["period.set_opening_balance"];
 
@@ -137,9 +134,17 @@ export default async function CashFlowPage({
       coverage = summarizeCashFlowCoverage(factsM);
     }
 
-    // Resolve the scope: a selected period wins over a manual date range.
+    // Resolve the scope: an explicitly selected period wins; otherwise, in
+    // Statement mode with no manual date range, default to the latest monthly
+    // period (allPeriods is ordered newest-first, so the first month-level entry
+    // is the latest). A manual range or "no periods" keeps the prior behavior.
     let range: CashFlowDateRange = {};
-    const activePeriod = periodIdParam ? allPeriods.find((p) => p.id === periodIdParam) : undefined;
+    const latestMonthly = allPeriods.find((p) => p.month !== null);
+    const activePeriod = periodIdParam
+      ? allPeriods.find((p) => p.id === periodIdParam)
+      : !fromParam && !toParam && viewParam !== "matrix"
+        ? latestMonthly
+        : undefined;
     if (activePeriod) {
       inPeriodMode = true;
       periodStatus = activePeriod.status;
@@ -208,7 +213,6 @@ export default async function CashFlowPage({
   }
 
   const closing = computeClosingBalance(opening.value, net, periodFx);
-  const exclusionsTotal = coverage.unclassified + coverage.fxPending + coverage.excluded;
 
   return (
     <>
@@ -224,7 +228,17 @@ export default async function CashFlowPage({
           current={{ from: fromParam, to: toParam, periodId: periodIdParam, view: viewParam }}
         />
 
-        {canManagePeriods && <CreatePeriodForm companyId={companyId} hasAnyPeriod={hasAnyPeriod} />}
+        {!hasAnyPeriod && hasStructure && canManagePeriods && (
+          <div className={styles.scopeRow}>
+            <span className={styles.rangeHint}>
+              No accounting periods yet. Create and manage periods in{" "}
+              <Link href={`/c/${companyId}/dashboard`} className={styles.exclLink}>
+                Period management
+              </Link>
+              .
+            </span>
+          </div>
+        )}
 
         <div className={styles.scopeRow}>
           <span className={styles.rangeHint}>
@@ -241,21 +255,38 @@ export default async function CashFlowPage({
         </div>
 
         {viewParam !== "matrix" && (
-          <div className={styles.coverage}>
-            <div className={styles.coverageCards}>
-              {([
-                ["Total", coverage.total, "default"],
-                ["Included", coverage.included, "ok"],
-                ["Unclassified", coverage.unclassified, coverage.unclassified > 0 ? "warn" : "muted"],
-                ["FX pending", coverage.fxPending, coverage.fxPending > 0 ? "warn" : "muted"],
-                ["Excluded", coverage.excluded, coverage.excluded > 0 ? "warn" : "muted"],
-              ] as const).map(([label, value, tone]) => (
-                <div key={label} className={styles.covCard}>
-                  <div className={styles.covValue} data-tone={tone}>[ {value} ]</div>
-                  <div className={styles.covLabel}>{label}</div>
-                </div>
-              ))}
-            </div>
+          <div className={styles.dataQuality}>
+            <span className={styles.dqLabel}>Data quality</span>
+            {coverage.unclassified === 0 && coverage.fxPending === 0 && coverage.excluded === 0 ? (
+              <span className={styles.dqOk}>All transactions classified</span>
+            ) : (
+              <>
+                {coverage.unclassified > 0 && (
+                  <span
+                    className={styles.dqWarn}
+                    title="Transactions with no cash flow line assigned."
+                  >
+                    Unclassified [ {coverage.unclassified} ]
+                  </span>
+                )}
+                {coverage.fxPending > 0 && (
+                  <span
+                    className={styles.dqWarn}
+                    title="Foreign-currency transactions waiting for an exchange rate. Not yet included in totals."
+                  >
+                    FX pending [ {coverage.fxPending} ]
+                  </span>
+                )}
+                {coverage.excluded > 0 && (
+                  <span
+                    className={styles.dqWarn}
+                    title="Not included: needs review, has no amount, or is a non-cash line."
+                  >
+                    Excluded [ {coverage.excluded} ]
+                  </span>
+                )}
+              </>
+            )}
           </div>
         )}
 
@@ -284,7 +315,7 @@ export default async function CashFlowPage({
                   <thead>
                     <tr>
                       <th>Line</th>
-                      <th className={styles.thRight}>Items</th>
+                      <th className={styles.thRight} title="Transactions included in this line.">Txns</th>
                       <th className={styles.thRight}>GEL</th>
                     </tr>
                   </thead>
@@ -395,32 +426,14 @@ export default async function CashFlowPage({
                   <span className={styles.num} data-negative={periodFx < 0}>{fmt(periodFx)}</span>
                 </div>
                 <div className={`${styles.totalLine} ${styles.netLine}`}>
-                  <span>Closing Cash Balance</span>
+                  <span title="Opening + Net Cash Flow + FX fluctuations">Closing Cash Balance</span>
                   <span className={styles.num} data-negative={closing !== null && closing < 0}>
                     {closing === null ? "-" : fmt(closing)}
                   </span>
                 </div>
-                {closing === null && (
-                  <div className={styles.rangeHint}>
-                    Closing = Opening Cash Balance + Net Cash Flow once an opening balance exists.
-                  </div>
-                )}
               </div>
             </div>
 
-            {exclusionsTotal > 0 && (
-              <div className={styles.exclusions}>
-                <span className={styles.exclTag}>Not included in this statement:</span>
-                <span>Unclassified [ {coverage.unclassified} ]</span>
-                <span>FX pending [ {coverage.fxPending} ]</span>
-                <span>Excluded [ {coverage.excluded} ]</span>
-                {canReview && (
-                  <Link href={`/c/${companyId}/classification`} className={styles.exclLink}>
-                    Review and classify -&gt;
-                  </Link>
-                )}
-              </div>
-            )}
           </>
         )}
       </div>
