@@ -260,20 +260,6 @@
   gap: 10px;
   flex-wrap: wrap;
 }
-.periodBadge {
-  font-size: 10px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  border-radius: 5px;
-  padding: 2px 8px;
-  background: var(--fcp-favorable-bg);
-  color: var(--fcp-favorable);
-}
-.periodBadge[data-locked="true"] {
-  background: var(--fcp-warning-bg);
-  color: var(--fcp-warning);
-}
 
 /* ---- Data quality line (compact; replaces the headline KPI cards) ---- */
 .dataQuality {
@@ -385,31 +371,11 @@
   border-bottom: 1px solid var(--fcp-line);
   white-space: nowrap;
 }
-.thRight {
-  text-align: right;
-}
 .table td {
   padding: 7px 8px;
   border-bottom: 1px solid var(--fcp-line-soft);
   color: var(--fcp-gray-800);
   vertical-align: middle;
-}
-.amount {
-  text-align: right;
-  font-family: var(--fcp-font-num);
-  white-space: nowrap;
-  font-variant-numeric: tabular-nums;
-}
-/* No red on negatives - accounting parentheses already carry the sign. Zeros
-   render muted to quiet the grid (matches Matrix detail styling). */
-.amount[data-zero="true"] {
-  color: var(--fcp-gray-400);
-}
-.count {
-  text-align: right;
-  color: var(--fcp-gray-400);
-  font-family: var(--fcp-font-num);
-  white-space: nowrap;
 }
 
 /* Statement table columns: explicit widths + alignment so each header sits
@@ -579,17 +545,6 @@
 }
 .ytdLine .num[data-negative="true"] {
   color: var(--fcp-unfavorable);
-}
-.srcTag {
-  margin-left: 7px;
-  font-size: 9.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  border-radius: 4px;
-  padding: 1px 5px;
-  background: var(--fcp-surface-3);
-  color: var(--fcp-gray-500);
 }
 /* Read-only opening-balance source, e.g. "Source: Imported from Excel". */
 .sourceNote {
