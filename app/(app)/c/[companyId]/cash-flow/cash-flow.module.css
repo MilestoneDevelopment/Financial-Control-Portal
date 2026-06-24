@@ -334,6 +334,12 @@
   color: var(--fcp-ink);
   padding: 12px 4px 8px;
 }
+.cardSubtitle {
+  font-size: 11.5px;
+  color: var(--fcp-gray-500);
+  padding: 0 4px 8px;
+  margin-top: -4px;
+}
 .table {
   width: 100%;
   border-collapse: collapse;
@@ -365,8 +371,10 @@
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.amount[data-negative="true"] {
-  color: var(--fcp-unfavorable);
+/* No red on negatives - accounting parentheses already carry the sign. Zeros
+   render muted to quiet the grid (matches Matrix detail styling). */
+.amount[data-zero="true"] {
+  color: var(--fcp-gray-400);
 }
 .count {
   text-align: right;
@@ -486,8 +494,9 @@
   font-family: var(--fcp-font-num);
   font-variant-numeric: tabular-nums;
 }
-.totalLine .num[data-negative="true"] {
-  color: var(--fcp-unfavorable);
+/* Bridge/summary numbers: no red; muted zeros only. */
+.totalLine .num[data-zero="true"] {
+  color: var(--fcp-gray-400);
 }
 .netLine {
   border-top: 1px solid var(--fcp-line);
@@ -768,7 +777,6 @@
   margin-left: 7px;
   font-size: 10px;
   font-weight: 400;
-  font-style: italic;
   color: var(--fcp-gray-400);
   white-space: nowrap;
 }

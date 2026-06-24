@@ -60,7 +60,6 @@ export default async function CashFlowPage({
   let net = 0;
   let coverage = summarizeCashFlowCoverage([]);
   let scopeLabel = "All transactions";
-  let usingDateRange = true;
   let matrix: ReturnType<typeof buildCashFlowMatrix> | null = null;
 
   // Period-aware state (only populated when a period is selected).
@@ -153,7 +152,6 @@ export default async function CashFlowPage({
       periodFx = activePeriod.fxFluctuations ?? 0;
       range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
       scopeLabel = activePeriod.label;
-      usingDateRange = false;
     } else {
       range = { dateFrom: fromParam || undefined, dateTo: toParam || undefined };
       if (fromParam || toParam) scopeLabel = `${fromParam || "start"} to ${toParam || "latest"}`;
@@ -235,10 +233,11 @@ export default async function CashFlowPage({
 
         <div className={styles.scopeRow}>
           <span className={styles.rangeHint}>
-            Scope: {scopeLabel}
-            {usingDateRange && periods.length === 0
-              ? " (no accounting periods yet - generating directly from transactions)"
-              : ""}
+            {inPeriodMode
+              ? `Selected period: ${scopeLabel}`
+              : fromParam || toParam
+                ? `Date range: ${fromParam || "start"} to ${toParam || "latest"}`
+                : "All transactions"}
           </span>
           {inPeriodMode && periodStatus && (
             <span className={styles.periodBadge} data-locked={isLockedOrClosed(periodStatus)}>
@@ -299,57 +298,8 @@ export default async function CashFlowPage({
           </div>
         ) : (
           <>
-            <div className={styles.statementCard}>
-              <div className={styles.cardTitle}>Statement</div>
-              {rows.length === 0 ? (
-                <div className={styles.empty}>The active structure has no line items to show.</div>
-              ) : (
-                <table className={styles.table}>
-                  <thead>
-                    <tr>
-                      <th>Line</th>
-                      <th className={styles.thRight} title="Transactions included in this line.">Transactions</th>
-                      <th className={styles.thRight}>GEL</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rows.map((r, i) => (
-                      <tr
-                        key={`${r.kind}-${i}`}
-                        className={
-                          r.emphasis
-                            ? styles.rowSection
-                            : r.kind === "group"
-                              ? styles.rowGroup
-                              : styles.rowClass
-                        }
-                      >
-                        <td style={{ paddingLeft: 8 + r.depth * 18 }}>
-                          <span className={styles.labelCell}>
-                            {r.label}
-                            {r.kind === "class" && r.direction && (
-                              <span className={styles.dirTag} data-dir={r.direction}>
-                                {r.direction === "in"
-                                  ? "in"
-                                  : r.direction === "out"
-                                    ? "out"
-                                    : r.direction === "both"
-                                      ? "in / out"
-                                      : "no direction"}
-                              </span>
-                            )}
-                          </span>
-                        </td>
-                        <td className={styles.count}>[ {r.count} ]</td>
-                        <td className={styles.amount} data-negative={r.amount < 0}>{r.amountText}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              )}
-            </div>
-
-            {/* Cash-flow bridge: Opening -> section flows -> Net -> FX -> Closing. */}
+            {/* Cash-flow bridge: Opening -> section flows -> Net -> FX -> Closing.
+                Shown above the detail table as the report summary. */}
             <div className={styles.bridgeCard}>
               <div className={styles.bridgeTitle}>Cash Flow Bridge</div>
 
@@ -360,7 +310,7 @@ export default async function CashFlowPage({
                     <span className={styles.srcTag}>{OPENING_STATE_LABEL[opening.state]}</span>
                   )}
                 </span>
-                <span className={styles.num} data-negative={opening.value !== null && opening.value < 0}>
+                <span className={styles.num} data-zero={opening.value === 0}>
                   {opening.value === null ? "-" : fmt(opening.value)}
                 </span>
               </div>
@@ -396,26 +346,76 @@ export default async function CashFlowPage({
               {roots.map((s) => (
                 <div key={s.id} className={`${styles.totalLine} ${styles.bridgeIndent}`}>
                   <span>{s.label}</span>
-                  <span className={styles.num} data-negative={s.amount < 0}>{fmt(s.amount)}</span>
+                  <span className={styles.num} data-zero={s.amount === 0}>{fmt(s.amount)}</span>
                 </div>
               ))}
 
               <div className={`${styles.totalLine} ${styles.netLine}`}>
                 <span>Net Cash Change</span>
-                <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
+                <span className={styles.num} data-zero={net === 0}>{fmt(net)}</span>
               </div>
               <div className={styles.totalLine}>
                 <span>FX fluctuations</span>
-                <span className={styles.num} data-negative={periodFx < 0}>{fmt(periodFx)}</span>
+                <span className={styles.num} data-zero={periodFx === 0}>{fmt(periodFx)}</span>
               </div>
               <div className={`${styles.totalLine} ${styles.netLine}`}>
                 <span title="Opening + Net Cash Change + FX fluctuations">Closing Cash Balance</span>
-                <span className={styles.num} data-negative={closing !== null && closing < 0}>
+                <span className={styles.num} data-zero={closing === 0}>
                   {closing === null ? "-" : fmt(closing)}
                 </span>
               </div>
             </div>
 
+            <div className={styles.statementCard}>
+              <div className={styles.cardTitle}>Statement detail</div>
+              <div className={styles.cardSubtitle}>Line-by-line cash flow for the selected scope.</div>
+              {rows.length === 0 ? (
+                <div className={styles.empty}>The active structure has no line items to show.</div>
+              ) : (
+                <table className={styles.table}>
+                  <thead>
+                    <tr>
+                      <th>Line</th>
+                      <th className={styles.thRight} title="Transactions included in this line.">Transactions</th>
+                      <th className={styles.thRight} title="Signed cash-flow amount in GEL.">Amount (GEL)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rows.map((r, i) => (
+                      <tr
+                        key={`${r.kind}-${i}`}
+                        className={
+                          r.emphasis
+                            ? styles.rowSection
+                            : r.kind === "group"
+                              ? styles.rowGroup
+                              : styles.rowClass
+                        }
+                      >
+                        <td style={{ paddingLeft: 8 + r.depth * 18 }}>
+                          <span className={styles.labelCell}>
+                            {r.label}
+                            {r.kind === "class" && r.direction && (
+                              <span className={styles.dirTag} data-dir={r.direction}>
+                                {r.direction === "in"
+                                  ? "in"
+                                  : r.direction === "out"
+                                    ? "out"
+                                    : r.direction === "both"
+                                      ? "in / out"
+                                      : "no direction"}
+                              </span>
+                            )}
+                          </span>
+                        </td>
+                        <td className={styles.count}>[ {r.count} ]</td>
+                        <td className={styles.amount} data-zero={r.amount === 0}>{r.amountText}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
           </>
         )}
       </div>
