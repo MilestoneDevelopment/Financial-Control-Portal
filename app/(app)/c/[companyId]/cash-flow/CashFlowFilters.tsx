@@ -11,6 +11,7 @@ export interface PeriodChoice {
 }
 
 export type CashFlowView = "statement" | "matrix";
+export type MatrixMode = "year" | "quarter" | "month";
 
 interface Current {
   from: string;
@@ -25,6 +26,8 @@ interface Current {
   showZero: boolean;
   /** Raw showZero param ("", "0", "1") - preserved across in-scope changes. */
   showZeroRaw: string;
+  /** Matrix aggregation columns. */
+  matrix: MatrixMode;
 }
 
 const SCOPE_TABS: { key: StatementScopeKind; label: string }[] = [
@@ -33,6 +36,12 @@ const SCOPE_TABS: { key: StatementScopeKind; label: string }[] = [
   { key: "half", label: "Half-year" },
   { key: "fy", label: "FY" },
   { key: "custom", label: "Custom" },
+];
+
+const MATRIX_TABS: { key: MatrixMode; label: string }[] = [
+  { key: "year", label: "Year" },
+  { key: "quarter", label: "Quarter" },
+  { key: "month", label: "Month" },
 ];
 
 /**
@@ -138,7 +147,32 @@ export function CashFlowFilters({
 
       {view === "matrix" ? (
         <div className={styles.filterFields}>
-          <span className={styles.rangeHint}>Showing every monthly accounting period side by side.</span>
+          <div className={styles.viewSwitch} role="tablist" aria-label="Matrix columns">
+            {MATRIX_TABS.map((t) => (
+              <button
+                key={t.key}
+                type="button"
+                role="tab"
+                aria-selected={current.matrix === t.key}
+                className={styles.viewBtn}
+                data-active={current.matrix === t.key}
+                disabled={pending}
+                onClick={() =>
+                  current.matrix !== t.key &&
+                  go(t.key === "year" ? { view: "matrix" } : { view: "matrix", matrix: t.key })
+                }
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <span className={styles.rangeHint}>
+            {current.matrix === "quarter"
+              ? "Quarters side by side."
+              : current.matrix === "month"
+                ? "Latest 12 months side by side."
+                : "Years side by side; click a year to drill into months."}
+          </span>
         </div>
       ) : (
         <>

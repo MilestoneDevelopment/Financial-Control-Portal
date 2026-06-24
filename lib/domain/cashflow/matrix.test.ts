@@ -4,6 +4,9 @@ import {
   buildCashFlowMatrix,
   latestYearWindow,
   selectMatrixYears,
+  buildAggregateMatrix,
+  quarterColumns,
+  latestMonthColumns,
   type MatrixPeriodInput,
 } from "./matrix.ts";
 import type { CashFlowNode, CashFlowTxn } from "./types.ts";
@@ -265,4 +268,90 @@ test("buildCashFlowMatrix: year-level periods (month=null) are excluded", () => 
   // Only monthly periods are bucketed; FY2025 is dropped.
   assert.equal(m.years[0].months.length, 3);
   assert.equal(m.years[1].months.length, 2);
+});
+
+/* ---- Phase 5E: flat aggregation matrix ---- */
+
+test("quarterColumns: groups months by (year, quarter) chronologically", () => {
+  const cols = quarterColumns(PERIODS);
+  assert.deepEqual(cols.map((c) => c.key), ["2025-Q1", "2026-Q1"]);
+  assert.deepEqual(cols.map((c) => c.label), ["Q1 2025", "Q1 2026"]);
+  assert.deepEqual(cols.map((c) => c.periods.length), [3, 2]); // Jan-Mar, Jan-Feb
+});
+
+test("latestMonthColumns: one column per month, latest N chronological", () => {
+  const all = latestMonthColumns(PERIODS, 12);
+  assert.deepEqual(all.map((c) => c.label), ["Jan 2025", "Feb 2025", "Mar 2025", "Jan 2026", "Feb 2026"]);
+  const last2 = latestMonthColumns(PERIODS, 2);
+  assert.deepEqual(last2.map((c) => c.label), ["Jan 2026", "Feb 2026"]);
+  assert.equal(last2[0].periods.length, 1);
+});
+
+test("buildAggregateMatrix: quarter columns sum months; Total sums columns", () => {
+  const m = buildAggregateMatrix(NODES, quarterColumns(PERIODS), TXNS);
+  assert.deepEqual(m.columns.map((c) => c.label), ["Q1 2025", "Q1 2026"]);
+  // Operations = land(+) + sal(-): Q1 2025 = 1300-300 = 1000; Q1 2026 = 400-50 = 350.
+  const ops = m.rows.find((r) => r.kind === "section" && r.label === "Operations")!;
+  assert.deepEqual(ops.cells.map((c) => c.value), [1000, 350]);
+  assert.equal(ops.total.value, 1350);
+  // "Total Expenses" footer subtotal: -300 / -50, total -350.
+  const te = m.rows.find((r) => r.label === "Total Expenses" && r.isTotal)!;
+  assert.deepEqual(te.cells.map((c) => c.value), [-300, -50]);
+  assert.equal(te.total.value, -350);
+  // Bidirectional Borrowings preserved: 700 / 250, total 950.
+  const borrow = m.rows.find((r) => r.label === "Borrowings")!;
+  assert.deepEqual(borrow.cells.map((c) => c.value), [700, 250]);
+  assert.equal(borrow.total.value, 950);
+});
+
+test("buildAggregateMatrix: quarter bridge rows (opening first, closing last, net/fx sum)", () => {
+  const m = buildAggregateMatrix(NODES, quarterColumns(PERIODS), TXNS);
+  const opening = m.rows.find((r) => r.kind === "bridge-opening")!;
+  const net = m.rows.find((r) => r.kind === "bridge-net")!;
+  const fx = m.rows.find((r) => r.kind === "bridge-fx")!;
+  const closing = m.rows.find((r) => r.kind === "bridge-closing")!;
+  // Opening = first month of each quarter; Total = "-".
+  assert.deepEqual(opening.cells.map((c) => c.value), [1000, 2000]);
+  assert.equal(opening.total.value, null);
+  assert.equal(opening.total.text, "-");
+  // Net = Operations + Financing per quarter: 1700 / 600; total 2300.
+  assert.deepEqual(net.cells.map((c) => c.value), [1700, 600]);
+  assert.equal(net.total.value, 2300);
+  // FX summed: -5 / -20; total -25.
+  assert.deepEqual(fx.cells.map((c) => c.value), [-5, -20]);
+  assert.equal(fx.total.value, -25);
+  // Closing = opening + net + fx: 2695 / 2580; Total = last column closing 2580.
+  assert.deepEqual(closing.cells.map((c) => c.value), [2695, 2580]);
+  assert.equal(closing.total.value, 2580);
+});
+
+test("buildAggregateMatrix: partial quarter uses only available months", () => {
+  // Only 2026 Jan+Feb exist for Q1 2026 (no March) -> one partial quarter column.
+  const partial = PERIODS.filter((p) => p.year === 2026);
+  const cols = quarterColumns(partial);
+  assert.equal(cols.length, 1);
+  assert.equal(cols[0].label, "Q1 2026");
+  const m = buildAggregateMatrix(NODES, cols, TXNS);
+  const closing = m.rows.find((r) => r.kind === "bridge-closing")!;
+  // opening 2000 + net 600 + fx -20 = 2580.
+  assert.equal(closing.cells[0].value, 2580);
+  assert.equal(closing.total.value, 2580);
+});
+
+test("buildAggregateMatrix: month columns use single-period values", () => {
+  const m = buildAggregateMatrix(NODES, latestMonthColumns(PERIODS, 12), TXNS);
+  assert.equal(m.columns.length, 5);
+  const net = m.rows.find((r) => r.kind === "bridge-net")!;
+  // Per-month net: Jan25 1300, Feb25 500, Mar25 -100, Jan26 400, Feb26 200.
+  assert.deepEqual(net.cells.map((c) => c.value), [1300, 500, -100, 400, 200]);
+  assert.equal(net.total.value, 2300);
+  const closing = m.rows.find((r) => r.kind === "bridge-closing")!;
+  // Total closing = last month's closing.
+  assert.equal(closing.total.value, closing.cells[closing.cells.length - 1].value);
+});
+
+test("buildAggregateMatrix: empty columns -> no columns, no rows", () => {
+  const m = buildAggregateMatrix(NODES, [], TXNS);
+  assert.deepEqual(m.columns, []);
+  assert.deepEqual(m.rows, []);
 });

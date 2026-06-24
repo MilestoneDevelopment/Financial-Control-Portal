@@ -13,7 +13,14 @@ import {
   type CashFlowDateRange,
 } from "@/lib/data/cashflow";
 import { buildCashFlowTree, computeClosingBalance } from "@/lib/domain/cashflow/generate";
-import { buildCashFlowMatrix, type MatrixPeriodInput } from "@/lib/domain/cashflow/matrix";
+import {
+  buildCashFlowMatrix,
+  buildAggregateMatrix,
+  quarterColumns,
+  latestMonthColumns,
+  type MatrixPeriodInput,
+  type FlatMatrixModel,
+} from "@/lib/domain/cashflow/matrix";
 import { summarizeCashFlowCoverage, type CashFlowCoverageFact } from "@/lib/domain/cashflow/coverage";
 import { formatCashFlowRows } from "@/lib/domain/cashflow/format";
 import {
@@ -38,8 +45,9 @@ import {
   type OpeningState,
   type PeriodStatus,
 } from "@/lib/domain/cashflow/periods";
-import { CashFlowFilters, type CashFlowView } from "./CashFlowFilters";
+import { CashFlowFilters, type CashFlowView, type MatrixMode } from "./CashFlowFilters";
 import { MatrixTable } from "./MatrixTable";
+import { AggregateMatrixTable } from "./AggregateMatrixTable";
 import styles from "./cash-flow.module.css";
 
 export const dynamic = "force-dynamic";
@@ -76,6 +84,8 @@ export default async function CashFlowPage({
   const toParam = one(sp.to);
   const periodIdParam = one(sp.periodId);
   const viewParam: CashFlowView = one(sp.view) === "matrix" ? "matrix" : "statement";
+  const matrixParam: MatrixMode =
+    one(sp.matrix) === "quarter" ? "quarter" : one(sp.matrix) === "month" ? "month" : "year";
   const scopeParam = one(sp.scope);
   const yearParam = one(sp.year);
   const qParam = one(sp.q);
@@ -100,6 +110,7 @@ export default async function CashFlowPage({
   let coverage = summarizeCashFlowCoverage([]);
   let scopeLabel = "All transactions";
   let matrix: ReturnType<typeof buildCashFlowMatrix> | null = null;
+  let aggregateMatrix: FlatMatrixModel | null = null;
 
   // Period-aware state (only populated when a period is selected).
   let inPeriodMode = false;
@@ -140,7 +151,15 @@ export default async function CashFlowPage({
         companyId,
         monthly.map((p) => ({ id: p.id, dateFrom: p.dateFrom, dateTo: p.dateTo })),
       );
-      matrix = buildCashFlowMatrix(nodes, matrixPeriods, txnsByPeriod);
+      // Year mode keeps the year-grouped model + drilldown; Quarter / Month modes
+      // render flat side-by-side columns from the same per-period transactions.
+      if (matrixParam === "quarter") {
+        aggregateMatrix = buildAggregateMatrix(nodes, quarterColumns(matrixPeriods), txnsByPeriod);
+      } else if (matrixParam === "month") {
+        aggregateMatrix = buildAggregateMatrix(nodes, latestMonthColumns(matrixPeriods, 12), txnsByPeriod);
+      } else {
+        matrix = buildCashFlowMatrix(nodes, matrixPeriods, txnsByPeriod);
+      }
       scopeLabel = monthly.length > 0
         ? `${monthly[0].label} - ${monthly[monthly.length - 1].label}`
         : "No monthly periods";
@@ -323,6 +342,7 @@ export default async function CashFlowPage({
             half: halfParam,
             showZero: showZeroResolved,
             showZeroRaw: showZeroParam,
+            matrix: matrixParam,
           }}
         />
 
@@ -390,9 +410,13 @@ export default async function CashFlowPage({
           </div>
         ) : viewParam === "matrix" ? (
           <div className={styles.statementCard}>
-            <div className={styles.cardTitle}>Matrix</div>
-            {matrix ? (
-              <MatrixTable model={matrix} />
+            <div className={styles.cardTitle}>
+              {matrixParam === "quarter" ? "Matrix - by quarter" : matrixParam === "month" ? "Matrix - by month" : "Matrix"}
+            </div>
+            {matrixParam === "year" ? (
+              matrix ? <MatrixTable model={matrix} /> : <div className={styles.empty}>No matrix data.</div>
+            ) : aggregateMatrix ? (
+              <AggregateMatrixTable model={aggregateMatrix} />
             ) : (
               <div className={styles.empty}>No matrix data.</div>
             )}

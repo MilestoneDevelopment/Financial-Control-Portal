@@ -393,3 +393,207 @@ export function buildCashFlowMatrix(
 
   return { years, rows };
 }
+
+/* ------------------------------------------------------------------ *
+ * Flat aggregation matrix (Phase 5E): side-by-side columns by
+ * Quarter or Month. Each column groups one or more monthly periods.
+ * The Year mode above is unchanged; this is an additive flat model.
+ * ------------------------------------------------------------------ */
+
+/** One aggregation column: a label + the monthly periods it groups. */
+export interface AggregateColumnInput {
+  key: string;
+  label: string;
+  periods: MatrixPeriodInput[];
+}
+
+export interface FlatColumn {
+  key: string;
+  label: string;
+}
+
+export interface FlatMatrixRow {
+  key: string;
+  kind: MatrixCellKind;
+  depth: number;
+  label: string;
+  emphasis: boolean;
+  isTotal: boolean;
+  direction: CashDirection | null;
+  noDirection: boolean;
+  /** Parallel to FlatMatrixModel.columns. */
+  cells: MatrixCell[];
+  /** Right-most Total column. */
+  total: MatrixCell;
+}
+
+export interface FlatMatrixModel {
+  columns: FlatColumn[];
+  rows: FlatMatrixRow[];
+}
+
+const QUARTER_OF = (month: number) => Math.ceil(month / 3);
+
+/**
+ * Group monthly periods into one column per (year, quarter), chronologically.
+ * Partial quarters are allowed (only the months that exist are grouped).
+ */
+export function quarterColumns(periods: MatrixPeriodInput[]): AggregateColumnInput[] {
+  const monthly = periods
+    .filter((p) => p.month !== null)
+    .slice()
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : (a.month as number) - (b.month as number)));
+  const buckets = new Map<string, AggregateColumnInput>();
+  for (const p of monthly) {
+    const q = QUARTER_OF(p.month as number);
+    const key = `${p.year}-Q${q}`;
+    let col = buckets.get(key);
+    if (!col) {
+      col = { key, label: `Q${q} ${p.year}`, periods: [] };
+      buckets.set(key, col);
+    }
+    col.periods.push(p);
+  }
+  return [...buckets.values()];
+}
+
+/**
+ * One column per month, limited to the latest `count` months (chronological).
+ * Keeps Month mode usable when there are many periods.
+ */
+export function latestMonthColumns(
+  periods: MatrixPeriodInput[],
+  count = 12,
+): AggregateColumnInput[] {
+  const monthly = periods
+    .filter((p) => p.month !== null)
+    .slice()
+    .sort((a, b) => (a.year !== b.year ? a.year - b.year : (a.month as number) - (b.month as number)));
+  const windowed = count > 0 && monthly.length > count ? monthly.slice(monthly.length - count) : monthly;
+  return windowed.map((p) => ({
+    key: p.id,
+    label: `${SHORT_MONTH[(p.month as number) - 1]} ${p.year}`,
+    periods: [p],
+  }));
+}
+
+/**
+ * Build a flat side-by-side matrix from aggregation columns. Each column sums
+ * the eligible signed amounts of its grouped months; bridge rows follow the
+ * same finance rules as the year matrix:
+ *   opening = first month's opening, net = sum, fx = sum,
+ *   closing = opening + net + fx (telescopes to the last month's closing).
+ * Total column: line items / net / fx summed across columns; opening = '-';
+ * closing = the last column's closing.
+ */
+export function buildAggregateMatrix(
+  nodes: CashFlowNode[],
+  columns: AggregateColumnInput[],
+  txnsByPeriod: ReadonlyMap<string, CashFlowTxn[]>,
+): FlatMatrixModel {
+  type Col = {
+    def: FlatColumn;
+    statement: ReturnType<typeof buildCashFlowTree>;
+    opening: number | null;
+    fx: number;
+    closing: number | null;
+  };
+  const cols: Col[] = columns.map((c) => {
+    const months = [...c.periods].sort((a, b) =>
+      a.year !== b.year ? a.year - b.year : (a.month as number) - (b.month as number),
+    );
+    const txns = months.flatMap((p) => txnsByPeriod.get(p.id) ?? []);
+    const statement = buildCashFlowTree(nodes, txns);
+    const opening = months.length > 0 ? months[0].openingBalance : null;
+    const fx = months.reduce((s, p) => s + (p.fxFluctuations ?? 0), 0);
+    const closing = computeClosingBalance(opening, statement.net, fx);
+    return { def: { key: c.key, label: c.label }, statement, opening, fx, closing };
+  });
+
+  const flatColumns: FlatColumn[] = cols.map((c) => c.def);
+  if (cols.length === 0) return { columns: flatColumns, rows: [] };
+
+  const rows: FlatMatrixRow[] = [];
+  const firstRoots = cols[0].statement.roots;
+  const allRoots = cols.map((c) => c.statement.roots);
+
+  function lineRow(
+    node: CashFlowTreeNode,
+    counterparts: CashFlowTreeNode[],
+    depth: number,
+    kind: "section" | "group" | "class",
+    emphasis: boolean,
+    isTotal: boolean,
+  ): FlatMatrixRow {
+    const values = counterparts.map((n) => n.amount);
+    return {
+      key: `node:${node.id}`,
+      kind,
+      depth,
+      label: node.label,
+      emphasis,
+      isTotal,
+      direction: kind === "class" ? node.cashDirection : null,
+      noDirection: kind === "class" && node.cashDirection === "neutral",
+      cells: values.map((v) => cell(v)),
+      total: cell(sumNumbers(values)),
+    };
+  }
+
+  function walk(
+    treeNodes: ReadonlyArray<CashFlowTreeNode>,
+    perColNodes: CashFlowTreeNode[][],
+    depth: number,
+  ): void {
+    for (let i = 0; i < treeNodes.length; i++) {
+      const node = treeNodes[i];
+      const counterparts = perColNodes.map((arr) => arr[i]);
+      if (node.kind === "class") {
+        rows.push(lineRow(node, counterparts, depth, "class", false, false));
+        continue;
+      }
+      if (node.kind === "group" && isTotalLabel(node.label)) {
+        walk(node.children, counterparts.map((n) => n.children), depth);
+        rows.push(lineRow(node, counterparts, depth, "group", true, true));
+        continue;
+      }
+      rows.push(
+        lineRow(node, counterparts, depth, node.kind === "section" ? "section" : "group", node.kind === "section", false),
+      );
+      walk(node.children, counterparts.map((n) => n.children), depth + 1);
+    }
+  }
+  walk(firstRoots, allRoots, 0);
+
+  const lastClosing = cols[cols.length - 1].closing;
+  const bridge = (
+    key: MatrixCellKind,
+    label: string,
+    emphasis: boolean,
+    pick: (c: Col) => number | null,
+    total: MatrixCell,
+  ): FlatMatrixRow => ({
+    key: `bridge:${key.replace("bridge-", "")}`,
+    kind: key,
+    depth: 0,
+    label,
+    emphasis,
+    isTotal: false,
+    direction: null,
+    noDirection: false,
+    cells: cols.map((c) => cell(pick(c))),
+    total,
+  });
+
+  const sumCol = (pick: (c: Col) => number | null) =>
+    cols.reduce<number>((s, c) => s + (pick(c) ?? 0), 0);
+
+  rows.push(
+    bridge("bridge-opening", "Cash balance at the beginning of the period", false, (c) => c.opening, cell(null)),
+    bridge("bridge-net", "Net cash change", true, (c) => c.statement.net, cell(sumCol((c) => c.statement.net))),
+    bridge("bridge-fx", "FX fluctuations", false, (c) => c.fx, cell(sumCol((c) => c.fx))),
+    bridge("bridge-closing", "Cash balance at the end of the period", true, (c) => c.closing, cell(lastClosing)),
+  );
+
+  return { columns: flatColumns, rows };
+}
