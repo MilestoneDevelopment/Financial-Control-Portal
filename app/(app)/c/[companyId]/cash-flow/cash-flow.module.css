@@ -634,12 +634,12 @@
   background: var(--fcp-surface);
   text-align: left;
   color: var(--fcp-gray-700);
-  /* Compact label column - long labels truncate with ellipsis. */
-  min-width: 220px;
-  max-width: 280px;
-  /* Stronger boundary so labels never visually bleed into numeric cells. */
+  /* Tight label column - moves the vertical separator close to labels. Long
+   * labels truncate with ellipsis and expose full text via title tooltip. */
+  min-width: 200px;
+  max-width: 240px;
   border-right: 1px solid var(--fcp-line);
-  box-shadow: 6px 0 6px -6px rgba(15, 23, 32, 0.12);
+  box-shadow: 5px 0 5px -5px rgba(15, 23, 32, 0.1);
 }
 .matrixHead.matrixLabelCol {
   z-index: 3;
@@ -768,12 +768,13 @@
   color: var(--fcp-gray-400);
 }
 
-/* Year header (compact, clickable to focus). Always shows a visible "+" so the
- * affordance is discoverable without hover. */
+/* Year header (compact, clickable to focus). The "+" stays visible without
+ * hover as a small, soft affordance - light border, light background, lower
+ * contrast - so it reads as a refined expand indicator, not a heavy chip. */
 .yearToggle {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   border: none;
   background: none;
   cursor: pointer;
@@ -787,21 +788,23 @@
 .yearToggle:hover {
   color: var(--fcp-ink);
 }
-.yearToggle:hover .yearTogglePlus {
-  background: var(--fcp-ink-strong);
-  border-color: var(--fcp-ink-strong);
-  color: #fff;
-}
 .yearTogglePlus {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
-  border: 1px solid var(--fcp-line);
-  border-radius: 4px;
-  background: var(--fcp-surface);
-  font-size: 12px;
+  width: 13px;
+  height: 13px;
+  border: 1px solid var(--fcp-line-soft);
+  border-radius: 3px;
+  background: transparent;
+  font-size: 10px;
+  font-weight: 600;
   line-height: 1;
-  color: var(--fcp-gray-600);
+  color: var(--fcp-gray-400);
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.yearToggle:hover .yearTogglePlus {
+  color: var(--fcp-ink);
+  border-color: var(--fcp-gray-400);
+  background: var(--fcp-surface);
 }
