@@ -566,15 +566,18 @@
 .matrixFocusBar {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
   background: var(--fcp-surface-3);
   border: 1px solid var(--fcp-line);
   border-radius: 6px;
-  padding: 5px 10px;
+  padding: 5px 12px;
 }
 .matrixFocusLabel {
   font-size: 12px;
   color: var(--fcp-gray-700);
+  /* Divider keeps the plain text clearly separated from the action button. */
+  padding-right: 16px;
+  border-right: 1px solid var(--fcp-line);
 }
 .matrixFocusLabel strong {
   color: var(--fcp-ink);
@@ -636,10 +639,11 @@
   color: var(--fcp-gray-700);
   /* FIXED width: min == max == width pins the column so the separator never
    * moves when the visible year window changes - only the numeric columns to
-   * the right flex. Long labels truncate with ellipsis (full text on hover). */
-  width: 240px;
-  min-width: 240px;
-  max-width: 240px;
+   * the right flex. Wide enough for normal labels; long labels truncate with
+   * ellipsis (full text on hover). */
+  width: 300px;
+  min-width: 300px;
+  max-width: 300px;
   border-right: 1px solid var(--fcp-line);
   box-shadow: 5px 0 5px -5px rgba(15, 23, 32, 0.1);
 }
