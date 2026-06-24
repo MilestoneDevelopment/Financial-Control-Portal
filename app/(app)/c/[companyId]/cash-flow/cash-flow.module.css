@@ -412,6 +412,34 @@
   white-space: nowrap;
 }
 
+/* Statement table columns: explicit widths + alignment so each header sits
+   directly over its values. Scoped to .table so Matrix styles are untouched. */
+.colLabel {
+  text-align: left;
+}
+.table .colTxns {
+  text-align: center;
+  width: 130px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.table td.colTxns {
+  color: var(--fcp-gray-400);
+  font-family: var(--fcp-font-num);
+}
+.table .colAmount {
+  text-align: right;
+  width: 160px;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+.table td.colAmount {
+  font-family: var(--fcp-font-num);
+}
+.table td.colAmount[data-zero="true"] {
+  color: var(--fcp-gray-400);
+}
+
 /* Row hierarchy emphasis */
 .rowSection td {
   background: var(--fcp-surface-3);
@@ -561,6 +589,12 @@
   border-radius: 4px;
   padding: 1px 5px;
   background: var(--fcp-surface-3);
+  color: var(--fcp-gray-500);
+}
+/* Read-only opening-balance source, e.g. "Source: Imported from Excel". */
+.sourceNote {
+  margin-left: 8px;
+  font-size: 11px;
   color: var(--fcp-gray-500);
 }
 .carriedNote {

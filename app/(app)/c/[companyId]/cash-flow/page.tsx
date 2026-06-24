@@ -34,13 +34,11 @@ import {
 import {
   adjacentPeriods,
   resolveOpeningBalance,
-  canEditOpeningBalance,
-  OPENING_STATE_LABEL,
   type OpeningResolution,
+  type OpeningState,
   type PeriodStatus,
 } from "@/lib/domain/cashflow/periods";
 import { CashFlowFilters, type CashFlowView } from "./CashFlowFilters";
-import { OpeningBalanceForm } from "./PeriodControls";
 import { MatrixTable } from "./MatrixTable";
 import styles from "./cash-flow.module.css";
 
@@ -49,6 +47,21 @@ export const dynamic = "force-dynamic";
 type SP = Record<string, string | string[] | undefined>;
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 const fmt = (n: number) => formatAmount(n, { decimals: 2 });
+
+// Read-only opening-balance source copy for the Cash Flow Bridge (display only;
+// stored source enum values are unchanged). `missing` shows no source label.
+const SOURCE_LABEL: Partial<Record<OpeningState, string>> = {
+  manual: "Source: Manual",
+  carried: "Source: Carried from previous period",
+  imported: "Source: Imported from Excel",
+  "carried-candidate": "Source: Carried from previous period",
+};
+const SOURCE_TITLE: Partial<Record<OpeningState, string>> = {
+  manual: "Opening balance entered manually.",
+  carried: "Opening balance carried from the previous period's closing.",
+  imported: "Opening balance imported from the CF Actual Excel history.",
+  "carried-candidate": "Opening balance carried from the previous period's closing.",
+};
 
 export default async function CashFlowPage({
   params,
@@ -77,7 +90,6 @@ export default async function CashFlowPage({
   const showZeroResolved = resolveShowZero(scopeKind, showZeroParam);
 
   let canManagePeriods = false;
-  let canSetOpening = false;
   let hasStructure = false;
   let hasAnyPeriod = false;
   let periods: { id: string; label: string }[] = [];
@@ -92,18 +104,13 @@ export default async function CashFlowPage({
   // Period-aware state (only populated when a period is selected).
   let inPeriodMode = false;
   let periodStatus: PeriodStatus | null = null;
-  let periodEditable = false;
   let opening: OpeningResolution = { state: "missing", value: null, candidate: null };
   let periodFx = 0;
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
-    const caps = await capabilityMap(supabase, companyId, [
-      "period.approve_lock",
-      "period.set_opening_balance",
-    ]);
+    const caps = await capabilityMap(supabase, companyId, ["period.approve_lock"]);
     canManagePeriods = caps["period.approve_lock"];
-    canSetOpening = caps["period.set_opening_balance"];
 
     const allPeriods = await listCashFlowPeriods(companyId);
     periods = allPeriods.map((p) => ({ id: p.id, label: p.label }));
@@ -203,10 +210,6 @@ export default async function CashFlowPage({
         if (activePeriod) {
           inPeriodMode = true;
           periodStatus = activePeriod.status;
-          periodEditable = canEditOpeningBalance({
-            status: activePeriod.status,
-            isCorrectionMode: activePeriod.isCorrectionMode,
-          });
           periodFx = activePeriod.fxFluctuations ?? 0;
           range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
           scopeLabel = `Selected period: ${activePeriod.label}`;
@@ -404,8 +407,10 @@ export default async function CashFlowPage({
               <div className={styles.totalLine}>
                 <span>
                   Opening Cash Balance
-                  {opening.value !== null && (
-                    <span className={styles.srcTag}>{OPENING_STATE_LABEL[opening.state]}</span>
+                  {opening.value !== null && SOURCE_LABEL[opening.state] && (
+                    <span className={styles.sourceNote} title={SOURCE_TITLE[opening.state]}>
+                      {SOURCE_LABEL[opening.state]}
+                    </span>
                   )}
                 </span>
                 <span className={styles.num} data-zero={opening.value === 0}>
@@ -423,22 +428,6 @@ export default async function CashFlowPage({
                     </div>
                   )}
                 </div>
-              )}
-
-              {inPeriodMode && canSetOpening && periodIdParam && periodStatus && (
-                periodEditable ? (
-                  <OpeningBalanceForm
-                    companyId={companyId}
-                    periodId={periodIdParam}
-                    hasValue={opening.value !== null}
-                    candidate={opening.state === "carried-candidate" ? opening.candidate : null}
-                  />
-                ) : (
-                  <div className={styles.lockNote}>
-                    This period is {PERIOD_STATUS_LABEL[periodStatus].toLowerCase()}. Enable
-                    Correction Mode to change the opening balance.
-                  </div>
-                )
               )}
 
               {roots.map((s) => (
@@ -473,9 +462,9 @@ export default async function CashFlowPage({
                 <table className={styles.table}>
                   <thead>
                     <tr>
-                      <th>Line</th>
-                      <th className={styles.thRight} title="Transactions included in this line.">Transactions</th>
-                      <th className={styles.thRight} title="Signed cash-flow amount in GEL.">Amount (GEL)</th>
+                      <th className={styles.colLabel}>Line</th>
+                      <th className={styles.colTxns} title="Transactions included in this line.">Transactions</th>
+                      <th className={styles.colAmount} title="Signed cash-flow amount in GEL.">Amount (GEL)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -506,8 +495,8 @@ export default async function CashFlowPage({
                             )}
                           </span>
                         </td>
-                        <td className={styles.count}>[ {r.count} ]</td>
-                        <td className={styles.amount} data-zero={r.amount === 0}>{r.amountText}</td>
+                        <td className={styles.colTxns}>[ {r.count} ]</td>
+                        <td className={styles.colAmount} data-zero={r.amount === 0}>{r.amountText}</td>
                       </tr>
                     ))}
                   </tbody>
