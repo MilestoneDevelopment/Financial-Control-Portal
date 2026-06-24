@@ -464,7 +464,7 @@ export default async function CashFlowPage({
                     <tr>
                       <th className={styles.colLabel}>Line</th>
                       <th className={styles.colTxns} title="Transactions included in this line.">Transactions</th>
-                      <th className={styles.colAmount} title="Signed cash-flow amount in GEL.">Amount (GEL)</th>
+                      <th className={styles.colAmount} title="Signed cash-flow amount in GEL.">Amount [GEL]</th>
                     </tr>
                   </thead>
                   <tbody>

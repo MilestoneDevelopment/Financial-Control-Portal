@@ -234,8 +234,8 @@ export function CashFlowFilters({
                     go({ scope: "half", year, half: e.target.value, ...zeroParam });
                   }}
                 >
-                  <option value="H1">H1 (Jan-Jun)</option>
-                  <option value="H2">H2 (Jul-Dec)</option>
+                  <option value="H1">H1 [Jan-Jun]</option>
+                  <option value="H2">H2 [Jul-Dec]</option>
                 </select>
               </label>
             )}
