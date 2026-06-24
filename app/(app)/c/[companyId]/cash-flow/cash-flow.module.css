@@ -98,6 +98,22 @@
   align-self: flex-end;
   padding-bottom: 6px;
 }
+/* Matrix controls row: tabs + helper text + zero toggle, vertically centered. */
+.matrixControlsRow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.matrixZeroToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--fcp-gray-600);
+  cursor: pointer;
+}
 .quarterChecks {
   display: inline-flex;
   gap: 12px;

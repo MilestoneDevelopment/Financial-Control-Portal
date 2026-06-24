@@ -148,7 +148,7 @@ export function CashFlowFilters({
       </div>
 
       {view === "matrix" ? (
-        <div className={styles.filterFields}>
+        <div className={styles.matrixControlsRow}>
           <div className={styles.viewSwitch} role="tablist" aria-label="Matrix columns">
             {MATRIX_TABS.map((t) => (
               <button
@@ -175,7 +175,7 @@ export function CashFlowFilters({
                 ? "Latest 12 months side by side."
                 : "Years side by side; click a year to drill into months."}
           </span>
-          <label className={styles.zeroToggle}>
+          <label className={styles.matrixZeroToggle}>
             <input
               type="checkbox"
               checked={current.matrixShowZero}
