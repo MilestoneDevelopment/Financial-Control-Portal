@@ -38,3 +38,26 @@ button {
   font-family: var(--fcp-font-num);
   font-variant-numeric: tabular-nums;
 }
+
+/* Brand scrollbars: accent (cyan) thumb, square corners, subtle track. */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--fcp-accent-strong) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--fcp-accent-strong);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--fcp-accent-ink);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}

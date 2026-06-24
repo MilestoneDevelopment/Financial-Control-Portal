@@ -28,6 +28,8 @@ interface Current {
   showZeroRaw: string;
   /** Matrix aggregation columns. */
   matrix: MatrixMode;
+  /** Matrix zero-line visibility (default off). */
+  matrixShowZero: boolean;
 }
 
 const SCOPE_TABS: { key: StatementScopeKind; label: string }[] = [
@@ -173,6 +175,21 @@ export function CashFlowFilters({
                 ? "Latest 12 months side by side."
                 : "Years side by side; click a year to drill into months."}
           </span>
+          <label className={styles.zeroToggle}>
+            <input
+              type="checkbox"
+              checked={current.matrixShowZero}
+              disabled={pending}
+              onChange={(e) =>
+                go(
+                  current.matrix === "year"
+                    ? { view: "matrix", ...(e.target.checked ? { showZero: "1" } : {}) }
+                    : { view: "matrix", matrix: current.matrix, ...(e.target.checked ? { showZero: "1" } : {}) },
+                )
+              }
+            />
+            Show zero lines
+          </label>
         </div>
       ) : (
         <>

@@ -154,12 +154,14 @@ export default async function CashFlowPage({
       );
       // Year mode keeps the year-grouped model + drilldown; Quarter / Month modes
       // render flat side-by-side columns from the same per-period transactions.
+      // Matrix hides zero-only rows by default; showZero=1 reveals them.
+      const matrixHideZero = showZeroParam !== "1";
       if (matrixParam === "quarter") {
-        aggregateMatrix = buildAggregateMatrix(nodes, quarterColumns(matrixPeriods), txnsByPeriod);
+        aggregateMatrix = buildAggregateMatrix(nodes, quarterColumns(matrixPeriods), txnsByPeriod, matrixHideZero);
       } else if (matrixParam === "month") {
-        aggregateMatrix = buildAggregateMatrix(nodes, latestMonthColumns(matrixPeriods, 12), txnsByPeriod);
+        aggregateMatrix = buildAggregateMatrix(nodes, latestMonthColumns(matrixPeriods, 12), txnsByPeriod, matrixHideZero);
       } else {
-        matrix = buildCashFlowMatrix(nodes, matrixPeriods, txnsByPeriod);
+        matrix = buildCashFlowMatrix(nodes, matrixPeriods, txnsByPeriod, matrixHideZero);
       }
       scopeLabel = monthly.length > 0
         ? `${monthly[0].label} - ${monthly[monthly.length - 1].label}`
@@ -344,6 +346,7 @@ export default async function CashFlowPage({
             showZero: showZeroResolved,
             showZeroRaw: showZeroParam,
             matrix: matrixParam,
+            matrixShowZero: showZeroParam === "1",
           }}
         />
 

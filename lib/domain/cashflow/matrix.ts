@@ -184,6 +184,7 @@ export function buildCashFlowMatrix(
   nodes: CashFlowNode[],
   periods: MatrixPeriodInput[],
   txnsByPeriod: ReadonlyMap<string, CashFlowTxn[]>,
+  hideZero = false,
 ): MatrixModel {
   // Discard year-level periods (month=null) - the matrix is monthly by design.
   const monthly = periods
@@ -274,37 +275,45 @@ export function buildCashFlowMatrix(
     };
   }
 
+  // When hideZero, a class with zero amount in every period is dropped, and a
+  // container is dropped when no descendant survives (pruning only - no maths).
   function walk(
     treeNodes: ReadonlyArray<CashFlowTreeNode>,
     perPeriodNodes: CashFlowTreeNode[][],
     depth: number,
-  ): void {
+  ): MatrixRow[] {
+    const out: MatrixRow[] = [];
     for (let i = 0; i < treeNodes.length; i++) {
       const node = treeNodes[i];
       const counterparts = perPeriodNodes.map((arr) => arr[i]);
 
       if (node.kind === "class") {
-        rows.push(lineRow(node, counterparts, depth, "class", false, false));
+        if (hideZero && counterparts.every((n) => n.amount === 0)) continue;
+        out.push(lineRow(node, counterparts, depth, "class", false, false));
         continue;
       }
 
       const totalFooter = node.kind === "group" && isTotalLabel(node.label);
       if (totalFooter) {
         // Footer subtotal: children first (at same depth), then total row.
-        walk(node.children, counterparts.map((n) => n.children), depth);
-        rows.push(lineRow(node, counterparts, depth, "group", true, true));
+        const childRows = walk(node.children, counterparts.map((n) => n.children), depth);
+        if (hideZero && childRows.length === 0) continue;
+        out.push(...childRows, lineRow(node, counterparts, depth, "group", true, true));
         continue;
       }
 
       // Section / header group: header first, then children indented one deeper.
-      rows.push(
+      const childRows = walk(node.children, counterparts.map((n) => n.children), depth + 1);
+      if (hideZero && childRows.length === 0) continue;
+      out.push(
         lineRow(node, counterparts, depth, node.kind === "section" ? "section" : "group", node.kind === "section", false),
+        ...childRows,
       );
-      walk(node.children, counterparts.map((n) => n.children), depth + 1);
     }
+    return out;
   }
 
-  walk(firstRoots, allRoots, 0);
+  rows.push(...walk(firstRoots, allRoots, 0));
 
   // Bridge rows.
   function bridgeRow(
@@ -517,6 +526,7 @@ export function buildAggregateMatrix(
   nodes: CashFlowNode[],
   columns: AggregateColumnInput[],
   txnsByPeriod: ReadonlyMap<string, CashFlowTxn[]>,
+  hideZero = false,
 ): FlatMatrixModel {
   type Col = {
     def: FlatColumn;
@@ -573,30 +583,38 @@ export function buildAggregateMatrix(
     };
   }
 
+  // When hideZero, a class with zero amount in every column is dropped, and a
+  // container is dropped when no descendant survives (pruning only - no maths).
   function walk(
     treeNodes: ReadonlyArray<CashFlowTreeNode>,
     perColNodes: CashFlowTreeNode[][],
     depth: number,
-  ): void {
+  ): FlatMatrixRow[] {
+    const out: FlatMatrixRow[] = [];
     for (let i = 0; i < treeNodes.length; i++) {
       const node = treeNodes[i];
       const counterparts = perColNodes.map((arr) => arr[i]);
       if (node.kind === "class") {
-        rows.push(lineRow(node, counterparts, depth, "class", false, false));
+        if (hideZero && counterparts.every((n) => n.amount === 0)) continue;
+        out.push(lineRow(node, counterparts, depth, "class", false, false));
         continue;
       }
       if (node.kind === "group" && isTotalLabel(node.label)) {
-        walk(node.children, counterparts.map((n) => n.children), depth);
-        rows.push(lineRow(node, counterparts, depth, "group", true, true));
+        const childRows = walk(node.children, counterparts.map((n) => n.children), depth);
+        if (hideZero && childRows.length === 0) continue;
+        out.push(...childRows, lineRow(node, counterparts, depth, "group", true, true));
         continue;
       }
-      rows.push(
+      const childRows = walk(node.children, counterparts.map((n) => n.children), depth + 1);
+      if (hideZero && childRows.length === 0) continue;
+      out.push(
         lineRow(node, counterparts, depth, node.kind === "section" ? "section" : "group", node.kind === "section", false),
+        ...childRows,
       );
-      walk(node.children, counterparts.map((n) => n.children), depth + 1);
     }
+    return out;
   }
-  walk(firstRoots, allRoots, 0);
+  rows.push(...walk(firstRoots, allRoots, 0));
 
   const lastClosing = cols[cols.length - 1].closing;
   const bridge = (

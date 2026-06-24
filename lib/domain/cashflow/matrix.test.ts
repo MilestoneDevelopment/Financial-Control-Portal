@@ -376,3 +376,46 @@ test("groupColumnYears: contiguous same-year runs with span + startIndex", () =>
   ]);
   assert.deepEqual(groupColumnYears([]), []);
 });
+
+/* ---- Phase 5E: zero-line pruning ---- */
+
+// Mar 2025 has only a Salaries (out) txn -> land/borrow zero that month.
+const MAR_ONLY = PERIODS.filter((p) => p.id === "p25mar");
+
+test("buildAggregateMatrix: hideZero drops all-zero rows, keeps nonzero parents + bridge", () => {
+  const m = buildAggregateMatrix(NODES, latestMonthColumns(MAR_ONLY, 12), TXNS, true);
+  const labels = m.rows.map((r) => r.label);
+  // Kept: section with activity, its footer subtotal, the nonzero leaf.
+  assert.ok(labels.includes("Operations"));
+  assert.ok(labels.includes("Salaries"));
+  assert.ok(labels.includes("Total Expenses"));
+  // Dropped: zero leaves and their now-empty containers.
+  assert.ok(!labels.includes("Land Plot Sales"));
+  assert.ok(!labels.includes("Revenue"));
+  assert.ok(!labels.includes("Borrowings"));
+  assert.ok(!labels.includes("Financing"));
+  // Bridge rows always preserved.
+  assert.ok(m.rows.some((r) => r.kind === "bridge-opening"));
+  assert.ok(m.rows.some((r) => r.kind === "bridge-closing"));
+});
+
+test("buildAggregateMatrix: hideZero off keeps the full row set", () => {
+  const full = buildAggregateMatrix(NODES, latestMonthColumns(MAR_ONLY, 12), TXNS, false);
+  const labels = full.rows.map((r) => r.label);
+  assert.ok(labels.includes("Land Plot Sales"));
+  assert.ok(labels.includes("Borrowings"));
+  assert.ok(labels.includes("Financing"));
+});
+
+test("buildCashFlowMatrix: hideZero prunes the year model the same way", () => {
+  const y = buildCashFlowMatrix(NODES, MAR_ONLY, TXNS, true);
+  const labels = y.rows.map((r) => r.label);
+  assert.ok(labels.includes("Operations"));
+  assert.ok(labels.includes("Salaries"));
+  assert.ok(!labels.includes("Land Plot Sales"));
+  assert.ok(!labels.includes("Financing"));
+  assert.ok(y.rows.some((r) => r.kind === "bridge-net"));
+  // hideZero off restores the full set.
+  const full = buildCashFlowMatrix(NODES, MAR_ONLY, TXNS, false);
+  assert.ok(full.rows.some((r) => r.label === "Land Plot Sales"));
+});
