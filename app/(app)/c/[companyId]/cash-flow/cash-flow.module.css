@@ -135,18 +135,24 @@
   align-self: flex-end;
   padding-bottom: 6px;
 }
-/* Matrix controls row: tabs + helper text + zero toggle, vertically centered. */
+/* Matrix controls row: tabs + helper text + zero toggle. Items align to the
+ * bottom edge of the segmented buttons; the helper text and toggle get a small
+ * bottom padding so their baseline sits on the buttons' text baseline. */
 .matrixControlsRow {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   flex-wrap: wrap;
   gap: 12px;
+}
+.matrixHelp {
+  padding-bottom: 7px;
 }
 .matrixZeroToggle {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   margin-left: auto;
+  padding-bottom: 7px;
   font-size: 11.5px;
   color: var(--fcp-gray-600);
   cursor: pointer;

@@ -179,7 +179,7 @@ export function CashFlowFilters({
               </button>
             ))}
           </div>
-          <span className={styles.rangeHint}>
+          <span className={`${styles.rangeHint} ${styles.matrixHelp}`}>
             {current.matrix === "quarter"
               ? "Quarters side by side."
               : current.matrix === "month"
