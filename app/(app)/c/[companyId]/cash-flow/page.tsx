@@ -18,13 +18,15 @@ import { summarizeCashFlowCoverage, type CashFlowCoverageFact } from "@/lib/doma
 import { formatCashFlowRows } from "@/lib/domain/cashflow/format";
 import {
   resolveStatementScopeKind,
-  shouldHideZeroRows,
+  resolveShowZero,
   pruneZeroRows,
   aggregatePeriodBridge,
-  quarterRange,
+  parseQuarters,
+  quartersDateRange,
+  quarterOfMonth,
+  formatQuartersLabel,
   halfRange,
   fyRange,
-  QUARTER_LABEL,
   HALF_LABEL,
   MONTH_SHORT,
   type StatementScopeKind,
@@ -32,7 +34,6 @@ import {
 import {
   adjacentPeriods,
   resolveOpeningBalance,
-  isLockedOrClosed,
   canEditOpeningBalance,
   OPENING_STATE_LABEL,
   type OpeningResolution,
@@ -66,13 +67,14 @@ export default async function CashFlowPage({
   const yearParam = one(sp.year);
   const qParam = one(sp.q);
   const halfParam = one(sp.half);
-  const showZeroParam = one(sp.showZero) === "1";
+  const showZeroParam = one(sp.showZero);
   const scopeKind: StatementScopeKind = resolveStatementScopeKind({
     scope: scopeParam,
     periodId: periodIdParam,
     from: fromParam,
     to: toParam,
   });
+  const showZeroResolved = resolveShowZero(scopeKind, showZeroParam);
 
   let canManagePeriods = false;
   let canSetOpening = false;
@@ -168,6 +170,30 @@ export default async function CashFlowPage({
 
       let range: CashFlowDateRange = {};
       let activePeriod: (typeof allPeriods)[number] | undefined;
+      // For quarter scope, restrict to the selected quarters' months (handles
+      // non-contiguous selections like Q1,Q3 where the bounding range spans Q2).
+      let quarterFilter: number[] | null = null;
+
+      // Aggregate a list of monthly periods into the cash-bridge opening/FX.
+      const setAggregateBridge = (inRange: typeof monthlyAsc) => {
+        const agg = aggregatePeriodBridge(
+          inRange.map((p) => ({
+            year: p.year,
+            month: p.month as number,
+            openingBalance: p.openingBalance,
+            fxFluctuations: p.fxFluctuations,
+          })),
+        );
+        periodFx = agg.fx;
+        const firstInRange = inRange[0];
+        // Opening = the first included month's opening (never invented).
+        opening = {
+          state: firstInRange?.openingBalanceSource ?? (agg.opening !== null ? "carried" : "missing"),
+          value: agg.opening,
+          candidate: null,
+        };
+        return agg;
+      };
 
       if (scopeKind === "month") {
         // Explicit period wins; otherwise default to the latest monthly period.
@@ -187,38 +213,27 @@ export default async function CashFlowPage({
         } else {
           scopeLabel = "All transactions";
         }
-      } else if (scopeKind === "quarter" || scopeKind === "half" || scopeKind === "fy") {
-        const q = Math.min(4, Math.max(1, Number(String(qParam).replace(/[^0-9]/g, "")) || 1));
+      } else if (scopeKind === "quarter") {
+        const selected = parseQuarters(qParam);
+        const quarters = selected.length ? selected : [1];
+        quarterFilter = quarters;
+        const r = quartersDateRange(year, quarters)!;
+        range = { dateFrom: r.dateFrom, dateTo: r.dateTo };
+        const inRange = monthlyAsc.filter(
+          (p) => p.year === year && quarters.includes(quarterOfMonth(p.month as number)),
+        );
+        setAggregateBridge(inRange);
+        scopeLabel = formatQuartersLabel(year, quarters);
+      } else if (scopeKind === "half" || scopeKind === "fy") {
         const half = Number(String(halfParam).replace(/[^0-9]/g, "")) === 2 ? 2 : 1;
-        const r =
-          scopeKind === "quarter"
-            ? quarterRange(year, q)
-            : scopeKind === "half"
-              ? halfRange(year, half)
-              : fyRange(year);
+        const r = scopeKind === "half" ? halfRange(year, half) : fyRange(year);
         range = { dateFrom: r.dateFrom, dateTo: r.dateTo };
         const inRange = monthlyAsc.filter((p) => p.dateFrom >= r.dateFrom && p.dateTo <= r.dateTo);
-        const agg = aggregatePeriodBridge(
-          inRange.map((p) => ({
-            year: p.year,
-            month: p.month as number,
-            openingBalance: p.openingBalance,
-            fxFluctuations: p.fxFluctuations,
-          })),
-        );
-        periodFx = agg.fx;
-        const firstInRange = inRange[0];
-        // Opening = the first included month's opening (never invented).
-        opening = {
-          state: firstInRange?.openingBalanceSource ?? (agg.opening !== null ? "carried" : "missing"),
-          value: agg.opening,
-          candidate: null,
-        };
-        if (scopeKind === "quarter") scopeLabel = QUARTER_LABEL(year, q);
-        else if (scopeKind === "half") scopeLabel = HALF_LABEL(year, half);
-        else
-          scopeLabel =
-            agg.lastMonth !== null && agg.lastMonth < 12
+        const agg = setAggregateBridge(inRange);
+        scopeLabel =
+          scopeKind === "half"
+            ? HALF_LABEL(year, half)
+            : agg.lastMonth !== null && agg.lastMonth < 12
               ? `FY ${year} through ${MONTH_SHORT(agg.lastMonth)}`
               : `FY ${year}`;
       } else {
@@ -230,14 +245,19 @@ export default async function CashFlowPage({
             : "All transactions";
       }
 
-      // Build the statement over the resolved range. Bridge totals use the full
-      // tree; the detail table optionally hides all-zero rows (never in FY).
-      const txns = await listCashFlowTransactions(companyId, range);
+      // Build the statement over the resolved range. Quarter scope filters to the
+      // selected quarters' months so a non-contiguous selection excludes the gap.
+      let txns = await listCashFlowTransactions(companyId, range);
+      if (quarterFilter) {
+        const qf = quarterFilter;
+        txns = txns.filter((t) => t.date != null && qf.includes(quarterOfMonth(Number(t.date.slice(5, 7)))));
+      }
       const statement = buildCashFlowTree(nodes, txns);
       roots = statement.roots;
       net = statement.net;
-      const hideZero = shouldHideZeroRows(scopeKind, showZeroParam);
-      rows = formatCashFlowRows(hideZero ? pruneZeroRows(statement) : statement);
+      // Bridge totals use the full tree; the detail table optionally hides zeros.
+      const showZero = resolveShowZero(scopeKind, showZeroParam);
+      rows = formatCashFlowRows(showZero ? statement : pruneZeroRows(statement));
 
       const dirById = new Map(
         nodes.filter((n) => n.kind === "class").map((n) => [n.id, n.cashDirection]),
@@ -298,7 +318,8 @@ export default async function CashFlowPage({
             year: yearParam,
             q: qParam,
             half: halfParam,
-            showZero: showZeroParam,
+            showZero: showZeroResolved,
+            showZeroRaw: showZeroParam,
           }}
         />
 
@@ -317,8 +338,8 @@ export default async function CashFlowPage({
         <div className={styles.scopeRow}>
           <span className={styles.rangeHint}>{scopeLabel}</span>
           {inPeriodMode && periodStatus && (
-            <span className={styles.periodBadge} data-locked={isLockedOrClosed(periodStatus)}>
-              {PERIOD_STATUS_LABEL[periodStatus]}
+            <span className={styles.periodStatusNote}>
+              Period status: {PERIOD_STATUS_LABEL[periodStatus]}
             </span>
           )}
         </div>

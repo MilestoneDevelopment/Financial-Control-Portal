@@ -39,6 +39,11 @@
   color: var(--fcp-gray-500);
   padding: 12px 0;
 }
+.periodsHint {
+  font-size: 11.5px;
+  color: var(--fcp-gray-500);
+  padding: 2px 0 8px;
+}
 .list {
   display: flex;
   flex-direction: column;

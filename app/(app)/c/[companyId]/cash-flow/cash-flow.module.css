@@ -98,6 +98,25 @@
   align-self: flex-end;
   padding-bottom: 6px;
 }
+.quarterChecks {
+  display: inline-flex;
+  gap: 12px;
+  align-items: center;
+  padding: 6px 2px;
+}
+.quarterCheck {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 12px;
+  color: var(--fcp-gray-700);
+  cursor: pointer;
+}
+/* Period lifecycle status, shown only for a single selected month. */
+.periodStatusNote {
+  font-size: 11px;
+  color: var(--fcp-gray-500);
+}
 .btnSm {
   border: none;
   cursor: pointer;

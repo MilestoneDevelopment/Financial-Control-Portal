@@ -111,6 +111,12 @@ export function PeriodsPanel({
 
       {error && <div className={styles.error}>{error}</div>}
 
+      {periods.length > 0 && (
+        <div className={styles.periodsHint}>
+          Imported periods remain Draft until reviewed and locked.
+        </div>
+      )}
+
       {periods.length === 0 ? (
         <div className={styles.empty}>No periods yet.</div>
       ) : (

@@ -5,7 +5,12 @@ import {
   halfRange,
   fyRange,
   resolveStatementScopeKind,
-  shouldHideZeroRows,
+  resolveShowZero,
+  defaultShowZero,
+  parseQuarters,
+  quartersDateRange,
+  quarterOfMonth,
+  formatQuartersLabel,
   pruneZeroRows,
   aggregatePeriodBridge,
 } from "./scope.ts";
@@ -38,13 +43,55 @@ test("resolveStatementScopeKind: explicit scope wins, else backward-compatible",
   assert.equal(resolveStatementScopeKind({ scope: "bogus", periodId: "p1" }), "month");
 });
 
-test("shouldHideZeroRows: FY always shows all; others hide unless showZero", () => {
-  assert.equal(shouldHideZeroRows("fy", false), false);
-  assert.equal(shouldHideZeroRows("fy", true), false);
-  assert.equal(shouldHideZeroRows("month", false), true);
-  assert.equal(shouldHideZeroRows("month", true), false);
-  assert.equal(shouldHideZeroRows("quarter", false), true);
-  assert.equal(shouldHideZeroRows("custom", false), true);
+test("defaultShowZero: FY defaults on, others off", () => {
+  assert.equal(defaultShowZero("fy"), true);
+  assert.equal(defaultShowZero("month"), false);
+  assert.equal(defaultShowZero("quarter"), false);
+  assert.equal(defaultShowZero("half"), false);
+  assert.equal(defaultShowZero("custom"), false);
+});
+
+test("resolveShowZero: explicit 1/0 override scope default", () => {
+  // FY defaults on, can be turned off.
+  assert.equal(resolveShowZero("fy", undefined), true);
+  assert.equal(resolveShowZero("fy", "0"), false);
+  assert.equal(resolveShowZero("fy", "1"), true);
+  // Month defaults off, can be turned on.
+  assert.equal(resolveShowZero("month", undefined), false);
+  assert.equal(resolveShowZero("month", "1"), true);
+  assert.equal(resolveShowZero("month", "0"), false);
+});
+
+test("quarterOfMonth: maps months to quarters", () => {
+  assert.equal(quarterOfMonth(1), 1);
+  assert.equal(quarterOfMonth(3), 1);
+  assert.equal(quarterOfMonth(4), 2);
+  assert.equal(quarterOfMonth(9), 3);
+  assert.equal(quarterOfMonth(12), 4);
+});
+
+test("parseQuarters: parses, dedupes, sorts, clamps", () => {
+  assert.deepEqual(parseQuarters("Q1,Q2"), [1, 2]);
+  assert.deepEqual(parseQuarters("1,3"), [1, 3]);
+  assert.deepEqual(parseQuarters("Q3,Q1,Q3"), [1, 3]);
+  assert.deepEqual(parseQuarters("Q5,Q0,Q2"), [2]); // out-of-range dropped
+  assert.deepEqual(parseQuarters(""), []);
+  assert.deepEqual(parseQuarters(undefined), []);
+});
+
+test("quartersDateRange: bounding range across selected quarters", () => {
+  assert.deepEqual(quartersDateRange(2025, [1, 2]), { dateFrom: "2025-01-01", dateTo: "2025-06-30" });
+  // non-contiguous Q1,Q3 -> Jan..Sep bounding range (caller filters Q2 out)
+  assert.deepEqual(quartersDateRange(2025, [1, 3]), { dateFrom: "2025-01-01", dateTo: "2025-09-30" });
+  assert.deepEqual(quartersDateRange(2026, [2]), { dateFrom: "2026-04-01", dateTo: "2026-06-30" });
+  assert.equal(quartersDateRange(2025, []), null);
+});
+
+test("formatQuartersLabel: single, contiguous, non-contiguous", () => {
+  assert.equal(formatQuartersLabel(2026, [2]), "Quarter: Q2 2026");
+  assert.equal(formatQuartersLabel(2025, [1, 2]), "Quarters: Q1-Q2 2025");
+  assert.equal(formatQuartersLabel(2025, [1, 2, 3]), "Quarters: Q1-Q3 2025");
+  assert.equal(formatQuartersLabel(2025, [1, 3]), "Quarters: Q1, Q3 2025");
 });
 
 function cls(id: string, label: string, amount: number): CashFlowTreeNode {

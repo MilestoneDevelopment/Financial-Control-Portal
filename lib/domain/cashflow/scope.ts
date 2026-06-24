@@ -52,9 +52,55 @@ export function fyRange(year: number): ScopeRange {
   return monthRange(year, 1, 12);
 }
 
-export const QUARTER_LABEL = (year: number, q: number) => `Quarter: Q${q} ${year}`;
 export const HALF_LABEL = (year: number, half: number) => `Half-year: H${half} ${year}`;
 export const MONTH_SHORT = (month: number) => MONTHS[month - 1];
+
+/** Calendar quarter (1-4) a 1-12 month falls in. */
+export function quarterOfMonth(month: number): number {
+  return Math.ceil(month / 3);
+}
+
+/**
+ * Parse a quarter param ("Q1,Q3", "1,3", "Q2") into a sorted unique list of
+ * quarter numbers (1-4). Invalid / empty input yields an empty list.
+ */
+export function parseQuarters(raw: string | undefined): number[] {
+  if (!raw) return [];
+  const set = new Set<number>();
+  for (const part of raw.split(",")) {
+    const n = Number(part.replace(/[^0-9]/g, ""));
+    if (Number.isInteger(n) && n >= 1 && n <= 4) set.add(n);
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+/**
+ * Bounding inclusive range that covers the selected quarters (min quarter start
+ * to max quarter end). Non-contiguous selections still return the bounding
+ * range; the caller filters transactions to the selected quarters. Null when no
+ * quarters are selected.
+ */
+export function quartersDateRange(year: number, quarters: number[]): ScopeRange | null {
+  if (quarters.length === 0) return null;
+  const min = Math.min(...quarters);
+  const max = Math.max(...quarters);
+  return { dateFrom: quarterRange(year, min).dateFrom, dateTo: quarterRange(year, max).dateTo };
+}
+
+/**
+ * Scope label for one or more quarters:
+ *   single        -> "Quarter: Q2 2026"
+ *   contiguous    -> "Quarters: Q1-Q2 2025"
+ *   non-contiguous-> "Quarters: Q1, Q3 2025"
+ */
+export function formatQuartersLabel(year: number, quarters: number[]): string {
+  const qs = [...quarters].sort((a, b) => a - b);
+  if (qs.length === 0) return `Quarter: ${year}`;
+  if (qs.length === 1) return `Quarter: Q${qs[0]} ${year}`;
+  const contiguous = qs[qs.length - 1] - qs[0] === qs.length - 1;
+  if (contiguous) return `Quarters: Q${qs[0]}-Q${qs[qs.length - 1]} ${year}`;
+  return `Quarters: ${qs.map((q) => `Q${q}`).join(", ")} ${year}`;
+}
 
 /**
  * Resolve the scope kind from query params, with backward compatibility:
@@ -75,10 +121,20 @@ export function resolveStatementScopeKind(p: {
   return "month";
 }
 
-/** Whether zero-value detail rows should be hidden for a scope (FY always shows all). */
-export function shouldHideZeroRows(kind: StatementScopeKind, showZero: boolean): boolean {
-  if (kind === "fy") return false;
-  return !showZero;
+/** Default zero-row visibility per scope: FY shows the full structure; others hide zeros. */
+export function defaultShowZero(kind: StatementScopeKind): boolean {
+  return kind === "fy";
+}
+
+/**
+ * Resolve whether zero rows are shown, from the raw `showZero` param and the
+ * scope default. "1" forces on, "0" forces off, anything else uses the default.
+ * Every scope (FY included) can be toggled.
+ */
+export function resolveShowZero(kind: StatementScopeKind, raw: string | undefined): boolean {
+  if (raw === "1") return true;
+  if (raw === "0") return false;
+  return defaultShowZero(kind);
 }
 
 /**

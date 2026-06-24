@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import type { StatementScopeKind } from "@/lib/domain/cashflow/scope";
+import { parseQuarters, type StatementScopeKind } from "@/lib/domain/cashflow/scope";
 import styles from "./cash-flow.module.css";
 
 export interface PeriodChoice {
@@ -21,7 +21,10 @@ interface Current {
   year: string;
   q: string;
   half: string;
+  /** Resolved (default-applied) zero-row visibility for the checkbox state. */
   showZero: boolean;
+  /** Raw showZero param ("", "0", "1") - preserved across in-scope changes. */
+  showZeroRaw: string;
 }
 
 const SCOPE_TABS: { key: StatementScopeKind; label: string }[] = [
@@ -35,6 +38,7 @@ const SCOPE_TABS: { key: StatementScopeKind; label: string }[] = [
 /**
  * Cash-flow report controls: a Statement / Matrix view switch and, in Statement
  * mode, a reporting-scope selector (Month / Quarter / Half-year / FY / Custom).
+ * Quarter supports selecting several quarters in one year for a combined report.
  * Scope changes navigate via query params; the server resolves the date range.
  */
 export function CashFlowFilters({
@@ -56,8 +60,13 @@ export function CashFlowFilters({
   const [from, setFrom] = useState(current.from);
   const [to, setTo] = useState(current.to);
   const [year, setYear] = useState(current.year || String(years[0] ?? ""));
-  const [q, setQ] = useState(current.q || "Q1");
   const [half, setHalf] = useState(current.half || "H1");
+
+  const selectedQuarters = parseQuarters(current.q);
+  // Preserve an explicit zero-line choice across in-scope (year/quarter) changes.
+  const zeroParam: Record<string, string | undefined> = current.showZeroRaw
+    ? { showZero: current.showZeroRaw }
+    : {};
 
   function go(params: Record<string, string | undefined>) {
     const p = new URLSearchParams();
@@ -70,7 +79,7 @@ export function CashFlowFilters({
   function scopeBase(): Record<string, string | undefined> {
     switch (current.scope) {
       case "quarter":
-        return { scope: "quarter", year: current.year || year, q: current.q || q };
+        return { scope: "quarter", year: current.year || year, q: current.q || "Q1" };
       case "half":
         return { scope: "half", year: current.year || year, half: current.half || half };
       case "fy":
@@ -85,10 +94,19 @@ export function CashFlowFilters({
   function switchScope(next: StatementScopeKind) {
     if (next === current.scope) return;
     if (next === "month") go({ scope: "month" });
-    else if (next === "quarter") go({ scope: "quarter", year, q });
+    else if (next === "quarter") go({ scope: "quarter", year, q: current.q || "Q1" });
     else if (next === "half") go({ scope: "half", year, half });
     else if (next === "fy") go({ scope: "fy", year });
     else go({ scope: "custom", from, to });
+  }
+
+  function toggleQuarter(qn: number, checked: boolean) {
+    const set = new Set(selectedQuarters.length ? selectedQuarters : [1]);
+    if (checked) set.add(qn);
+    else set.delete(qn);
+    const list = [...set].sort((a, b) => a - b);
+    const qStr = list.map((n) => `Q${n}`).join(",");
+    go({ scope: "quarter", year, q: qStr || "Q1", ...zeroParam });
   }
 
   return (
@@ -171,9 +189,11 @@ export function CashFlowFilters({
                   disabled={pending}
                   onChange={(e) => {
                     setYear(e.target.value);
-                    if (current.scope === "quarter") go({ scope: "quarter", year: e.target.value, q });
-                    else if (current.scope === "half") go({ scope: "half", year: e.target.value, half });
-                    else go({ scope: "fy", year: e.target.value });
+                    if (current.scope === "quarter")
+                      go({ scope: "quarter", year: e.target.value, q: current.q || "Q1", ...zeroParam });
+                    else if (current.scope === "half")
+                      go({ scope: "half", year: e.target.value, half, ...zeroParam });
+                    else go({ scope: "fy", year: e.target.value, ...zeroParam });
                   }}
                 >
                   {years.map((y) => (
@@ -184,22 +204,22 @@ export function CashFlowFilters({
             )}
 
             {current.scope === "quarter" && (
-              <label className={styles.field}>
-                <span className={styles.fieldLabel}>Quarter</span>
-                <select
-                  className={styles.select}
-                  value={q}
-                  disabled={pending}
-                  onChange={(e) => {
-                    setQ(e.target.value);
-                    go({ scope: "quarter", year, q: e.target.value });
-                  }}
-                >
-                  {["Q1", "Q2", "Q3", "Q4"].map((x) => (
-                    <option key={x} value={x}>{x}</option>
+              <div className={styles.field}>
+                <span className={styles.fieldLabel}>Quarters</span>
+                <div className={styles.quarterChecks}>
+                  {[1, 2, 3, 4].map((qn) => (
+                    <label key={qn} className={styles.quarterCheck}>
+                      <input
+                        type="checkbox"
+                        checked={selectedQuarters.includes(qn)}
+                        disabled={pending}
+                        onChange={(e) => toggleQuarter(qn, e.target.checked)}
+                      />
+                      Q{qn}
+                    </label>
                   ))}
-                </select>
-              </label>
+                </div>
+              </div>
             )}
 
             {current.scope === "half" && (
@@ -211,7 +231,7 @@ export function CashFlowFilters({
                   disabled={pending}
                   onChange={(e) => {
                     setHalf(e.target.value);
-                    go({ scope: "half", year, half: e.target.value });
+                    go({ scope: "half", year, half: e.target.value, ...zeroParam });
                   }}
                 >
                   <option value="H1">H1 (Jan-Jun)</option>
@@ -256,20 +276,16 @@ export function CashFlowFilters({
               </form>
             )}
 
-            {/* Zero-line toggle: not shown for FY (FY always shows the full structure). */}
-            {current.scope !== "fy" && (
-              <label className={styles.zeroToggle}>
-                <input
-                  type="checkbox"
-                  checked={current.showZero}
-                  disabled={pending}
-                  onChange={(e) =>
-                    go({ ...scopeBase(), showZero: e.target.checked ? "1" : undefined })
-                  }
-                />
-                Show zero lines
-              </label>
-            )}
+            {/* Zero-line toggle is available for every scope (FY defaults on). */}
+            <label className={styles.zeroToggle}>
+              <input
+                type="checkbox"
+                checked={current.showZero}
+                disabled={pending}
+                onChange={(e) => go({ ...scopeBase(), showZero: e.target.checked ? "1" : "0" })}
+              />
+              Show zero lines
+            </label>
           </div>
         </>
       )}
