@@ -422,6 +422,31 @@
   color: var(--fcp-accent-ink);
 }
 
+/* ---- Cash-flow bridge (Statement bottom section) ---- */
+.bridgeCard {
+  background: var(--fcp-surface);
+  border: 1px solid var(--fcp-line);
+  border-radius: var(--fcp-radius-card);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 560px;
+}
+.bridgeTitle {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--fcp-gray-500);
+  margin-bottom: 2px;
+}
+/* Section flow lines sit indented + slightly muted between Opening and Net. */
+.bridgeIndent {
+  padding-left: 14px;
+  color: var(--fcp-gray-600);
+}
+
 /* ---- Totals + balance ---- */
 .summaryRow {
   display: flex;
@@ -670,11 +695,13 @@
   color: var(--fcp-gray-700);
   /* FIXED width: min == max == width pins the column so the separator never
    * moves when the visible year window changes - only the numeric columns to
-   * the right flex. Wide enough for normal labels; long labels truncate with
-   * ellipsis (full text on hover). */
-  width: 300px;
-  min-width: 300px;
-  max-width: 300px;
+   * the right flex. Wide enough that normal cash-flow line names read fully;
+   * very long labels wrap to two lines then ellipsis (full text on hover). */
+  width: 420px;
+  min-width: 420px;
+  max-width: 420px;
+  white-space: normal;
+  vertical-align: middle;
   border-right: 1px solid var(--fcp-line);
   box-shadow: 5px 0 5px -5px rgba(15, 23, 32, 0.1);
 }
@@ -722,12 +749,27 @@
   min-width: 0;
 }
 .matrixTable .labelText {
-  /* No grow: keep the badge adjacent to the label text. Shrink + ellipsis only
-   * kicks in for long labels that exceed the column max-width. */
+  /* No grow: keep the badge adjacent to the label text. Long labels wrap to a
+   * second line then clamp with ellipsis; the full label stays in the title. */
   flex: 0 1 auto;
   min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
+}
+/* Override the table-wide nowrap so label cells can wrap to two lines. */
+.matrixTable th.matrixLabelCol {
+  white-space: normal;
+}
+/* Bridge helper hints: plain, small, muted - no chip background. */
+.matrixTable .bridgeHint {
+  margin-left: 7px;
+  font-size: 10px;
+  font-weight: 400;
+  font-style: italic;
+  color: var(--fcp-gray-400);
   white-space: nowrap;
 }
 

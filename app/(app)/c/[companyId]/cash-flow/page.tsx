@@ -19,7 +19,6 @@ import { formatCashFlowRows } from "@/lib/domain/cashflow/format";
 import {
   adjacentPeriods,
   resolveOpeningBalance,
-  ytdDateRange,
   isLockedOrClosed,
   canEditOpeningBalance,
   OPENING_STATE_LABEL,
@@ -70,7 +69,6 @@ export default async function CashFlowPage({
   let periodEditable = false;
   let opening: OpeningResolution = { state: "missing", value: null, candidate: null };
   let periodFx = 0;
-  let ytd: { label: string; net: number } | null = null;
 
   if (isSupabaseConfigured()) {
     const supabase = await createClient();
@@ -204,11 +202,6 @@ export default async function CashFlowPage({
         openingBalanceSource: activePeriod.openingBalanceSource,
         previousClosing,
       });
-
-      // YTD: net from the fiscal year start through the selected period.
-      const yr = ytdDateRange(activePeriod.year, activePeriod.month);
-      const ytdTxns = await listCashFlowTransactions(companyId, { dateFrom: yr.dateFrom, dateTo: yr.dateTo });
-      ytd = { label: yr.label, net: buildCashFlowTree(nodes, ytdTxns).net };
     }
   }
 
@@ -315,7 +308,7 @@ export default async function CashFlowPage({
                   <thead>
                     <tr>
                       <th>Line</th>
-                      <th className={styles.thRight} title="Transactions included in this line.">Txns</th>
+                      <th className={styles.thRight} title="Transactions included in this line.">Transactions</th>
                       <th className={styles.thRight}>GEL</th>
                     </tr>
                   </thead>
@@ -356,81 +349,70 @@ export default async function CashFlowPage({
               )}
             </div>
 
-            <div className={styles.summaryRow}>
-              <div className={styles.totalsCard}>
-                <div className={styles.totalsTitle}>Totals</div>
-                {roots.map((s) => (
-                  <div key={s.id} className={styles.totalLine}>
-                    <span>{s.label}</span>
-                    <span className={styles.num} data-negative={s.amount < 0}>{fmt(s.amount)}</span>
-                  </div>
-                ))}
-                <div className={`${styles.totalLine} ${styles.netLine}`}>
-                  <span>Net Cash Flow</span>
-                  <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
-                </div>
-                {ytd && (
-                  <div className={styles.ytdLine}>
-                    <span>{ytd.label}</span>
-                    <span className={styles.num} data-negative={ytd.net < 0}>{fmt(ytd.net)}</span>
-                  </div>
-                )}
+            {/* Cash-flow bridge: Opening -> section flows -> Net -> FX -> Closing. */}
+            <div className={styles.bridgeCard}>
+              <div className={styles.bridgeTitle}>Cash Flow Bridge</div>
+
+              <div className={styles.totalLine}>
+                <span>
+                  Opening Cash Balance
+                  {opening.value !== null && (
+                    <span className={styles.srcTag}>{OPENING_STATE_LABEL[opening.state]}</span>
+                  )}
+                </span>
+                <span className={styles.num} data-negative={opening.value !== null && opening.value < 0}>
+                  {opening.value === null ? "-" : fmt(opening.value)}
+                </span>
               </div>
 
-              <div className={styles.balanceCard}>
-                <div className={styles.balanceTitle}>Cash Balance</div>
-
-                {opening.value !== null ? (
-                  <div className={styles.totalLine}>
-                    <span>
-                      Opening Cash Balance
-                      <span className={styles.srcTag}>{OPENING_STATE_LABEL[opening.state]}</span>
-                    </span>
-                    <span className={styles.num} data-negative={opening.value < 0}>{fmt(opening.value)}</span>
-                  </div>
-                ) : (
-                  <div className={styles.balancePlaceholder}>
-                    Opening balance is not set for this period.
-                    {opening.state === "carried-candidate" && opening.candidate !== null && (
-                      <div className={styles.carriedNote}>
-                        Carried opening available from the previous period:{" "}
-                        <strong>{fmt(opening.candidate)}</strong>.
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {inPeriodMode && canSetOpening && periodIdParam && periodStatus && (
-                  periodEditable ? (
-                    <OpeningBalanceForm
-                      companyId={companyId}
-                      periodId={periodIdParam}
-                      hasValue={opening.value !== null}
-                      candidate={opening.state === "carried-candidate" ? opening.candidate : null}
-                    />
-                  ) : (
-                    <div className={styles.lockNote}>
-                      This period is {PERIOD_STATUS_LABEL[periodStatus].toLowerCase()}. Enable
-                      Correction Mode to change the opening balance.
+              {opening.value === null && (
+                <div className={styles.balancePlaceholder}>
+                  Opening balance is not set for this period.
+                  {opening.state === "carried-candidate" && opening.candidate !== null && (
+                    <div className={styles.carriedNote}>
+                      Carried opening available from the previous period:{" "}
+                      <strong>{fmt(opening.candidate)}</strong>.
                     </div>
-                  )
-                )}
+                  )}
+                </div>
+              )}
 
-                <div className={styles.totalLine}>
-                  <span>Net Cash Flow</span>
-                  <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
+              {inPeriodMode && canSetOpening && periodIdParam && periodStatus && (
+                periodEditable ? (
+                  <OpeningBalanceForm
+                    companyId={companyId}
+                    periodId={periodIdParam}
+                    hasValue={opening.value !== null}
+                    candidate={opening.state === "carried-candidate" ? opening.candidate : null}
+                  />
+                ) : (
+                  <div className={styles.lockNote}>
+                    This period is {PERIOD_STATUS_LABEL[periodStatus].toLowerCase()}. Enable
+                    Correction Mode to change the opening balance.
+                  </div>
+                )
+              )}
+
+              {roots.map((s) => (
+                <div key={s.id} className={`${styles.totalLine} ${styles.bridgeIndent}`}>
+                  <span>{s.label}</span>
+                  <span className={styles.num} data-negative={s.amount < 0}>{fmt(s.amount)}</span>
                 </div>
-                {/* Cash balance bridge: FX from the selected period (read-only); 0.00 outside period mode. */}
-                <div className={styles.totalLine}>
-                  <span>FX fluctuations</span>
-                  <span className={styles.num} data-negative={periodFx < 0}>{fmt(periodFx)}</span>
-                </div>
-                <div className={`${styles.totalLine} ${styles.netLine}`}>
-                  <span title="Opening + Net Cash Flow + FX fluctuations">Closing Cash Balance</span>
-                  <span className={styles.num} data-negative={closing !== null && closing < 0}>
-                    {closing === null ? "-" : fmt(closing)}
-                  </span>
-                </div>
+              ))}
+
+              <div className={`${styles.totalLine} ${styles.netLine}`}>
+                <span>Net Cash Change</span>
+                <span className={styles.num} data-negative={net < 0}>{fmt(net)}</span>
+              </div>
+              <div className={styles.totalLine}>
+                <span>FX fluctuations</span>
+                <span className={styles.num} data-negative={periodFx < 0}>{fmt(periodFx)}</span>
+              </div>
+              <div className={`${styles.totalLine} ${styles.netLine}`}>
+                <span title="Opening + Net Cash Change + FX fluctuations">Closing Cash Balance</span>
+                <span className={styles.num} data-negative={closing !== null && closing < 0}>
+                  {closing === null ? "-" : fmt(closing)}
+                </span>
               </div>
             </div>
 

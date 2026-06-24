@@ -239,7 +239,7 @@ function MatrixRowView({
           )}
           {row.kind === "bridge-closing" && (
             <span
-              className={styles.srcTag}
+              className={styles.bridgeHint}
               title="Uses the last visible period's closing balance (not a sum)."
             >
               Last month closing
@@ -247,7 +247,7 @@ function MatrixRowView({
           )}
           {row.kind === "bridge-opening" && (
             <span
-              className={styles.srcTag}
+              className={styles.bridgeHint}
               title="Uses the first visible period's opening balance (not a sum)."
             >
               First month opening
