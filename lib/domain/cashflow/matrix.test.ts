@@ -7,6 +7,7 @@ import {
   buildAggregateMatrix,
   quarterColumns,
   latestMonthColumns,
+  groupColumnYears,
   type MatrixPeriodInput,
 } from "./matrix.ts";
 import type { CashFlowNode, CashFlowTxn } from "./types.ts";
@@ -354,4 +355,24 @@ test("buildAggregateMatrix: empty columns -> no columns, no rows", () => {
   const m = buildAggregateMatrix(NODES, [], TXNS);
   assert.deepEqual(m.columns, []);
   assert.deepEqual(m.rows, []);
+});
+
+test("columns carry year + short sub-labels for the grouped header", () => {
+  const q = buildAggregateMatrix(NODES, quarterColumns(PERIODS), TXNS);
+  assert.deepEqual(q.columns.map((c) => c.year), [2025, 2026]);
+  assert.deepEqual(q.columns.map((c) => c.short), ["Q1", "Q1"]);
+  const m = buildAggregateMatrix(NODES, latestMonthColumns(PERIODS, 12), TXNS);
+  assert.deepEqual(m.columns.map((c) => c.short), ["Jan", "Feb", "Mar", "Jan", "Feb"]);
+  assert.deepEqual(m.columns.map((c) => c.year), [2025, 2025, 2025, 2026, 2026]);
+});
+
+test("groupColumnYears: contiguous same-year runs with span + startIndex", () => {
+  const cols = [
+    { year: 2025 }, { year: 2025 }, { year: 2025 }, { year: 2026 }, { year: 2026 },
+  ];
+  assert.deepEqual(groupColumnYears(cols), [
+    { year: 2025, span: 3, startIndex: 0 },
+    { year: 2026, span: 2, startIndex: 3 },
+  ]);
+  assert.deepEqual(groupColumnYears([]), []);
 });

@@ -767,6 +767,35 @@
   color: var(--fcp-ink);
 }
 
+/* ---- Aggregate (Quarter / Month) grouped header ---- */
+/* Year banner row: a non-sticky banner above the sticky sub-label row. The
+ * corner cell over the label column also carries .matrixLabelCol for left-sticky. */
+.matrixGroupHead {
+  background: var(--fcp-surface-3);
+  text-align: center;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--fcp-gray-600);
+  padding: 4px 12px;
+  border-bottom: 1px solid var(--fcp-line);
+}
+.matrixYearGroup {
+  border-left: 2px solid var(--fcp-line);
+}
+/* Stronger vertical divider at each new-year boundary (header + body). */
+.matrixYearStart {
+  border-left: 2px solid var(--fcp-line);
+}
+/* Month mode: narrower numeric columns so latest 12 + Total fit a desktop. */
+.aggregateMonthTable .matrixAmountCol {
+  min-width: 80px;
+  font-size: 11px;
+}
+.aggregateMonthTable .matrixTotalCol {
+  min-width: 106px;
+}
+
 /* Label cell: direction badge sits immediately after the label text (not floating
  * to the right of the column). Long labels truncate via the inner span. */
 .matrixTable .labelCell {

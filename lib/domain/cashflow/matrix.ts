@@ -403,13 +403,38 @@ export function buildCashFlowMatrix(
 /** One aggregation column: a label + the monthly periods it groups. */
 export interface AggregateColumnInput {
   key: string;
+  /** Full label, e.g. "Q1 2025" / "Jan 2025" (tooltip / accessibility). */
   label: string;
+  /** Year the column belongs to (for the grouped header). */
+  year: number;
+  /** Compact sub-label under the year group, e.g. "Q1" / "Jan". */
+  short: string;
   periods: MatrixPeriodInput[];
 }
 
 export interface FlatColumn {
   key: string;
   label: string;
+  year: number;
+  short: string;
+}
+
+/** A contiguous run of columns sharing a year, for the top header row. */
+export interface ColumnYearGroup {
+  year: number;
+  span: number;
+  startIndex: number;
+}
+
+/** Group flat columns into contiguous same-year runs (for a two-row header). */
+export function groupColumnYears(columns: ReadonlyArray<{ year: number }>): ColumnYearGroup[] {
+  const groups: ColumnYearGroup[] = [];
+  for (let i = 0; i < columns.length; i++) {
+    const last = groups[groups.length - 1];
+    if (last && last.year === columns[i].year) last.span += 1;
+    else groups.push({ year: columns[i].year, span: 1, startIndex: i });
+  }
+  return groups;
 }
 
 export interface FlatMatrixRow {
@@ -449,7 +474,7 @@ export function quarterColumns(periods: MatrixPeriodInput[]): AggregateColumnInp
     const key = `${p.year}-Q${q}`;
     let col = buckets.get(key);
     if (!col) {
-      col = { key, label: `Q${q} ${p.year}`, periods: [] };
+      col = { key, label: `Q${q} ${p.year}`, year: p.year, short: `Q${q}`, periods: [] };
       buckets.set(key, col);
     }
     col.periods.push(p);
@@ -473,6 +498,8 @@ export function latestMonthColumns(
   return windowed.map((p) => ({
     key: p.id,
     label: `${SHORT_MONTH[(p.month as number) - 1]} ${p.year}`,
+    year: p.year,
+    short: SHORT_MONTH[(p.month as number) - 1],
     periods: [p],
   }));
 }
@@ -507,7 +534,13 @@ export function buildAggregateMatrix(
     const opening = months.length > 0 ? months[0].openingBalance : null;
     const fx = months.reduce((s, p) => s + (p.fxFluctuations ?? 0), 0);
     const closing = computeClosingBalance(opening, statement.net, fx);
-    return { def: { key: c.key, label: c.label }, statement, opening, fx, closing };
+    return {
+      def: { key: c.key, label: c.label, year: c.year, short: c.short },
+      statement,
+      opening,
+      fx,
+      closing,
+    };
   });
 
   const flatColumns: FlatColumn[] = cols.map((c) => c.def);

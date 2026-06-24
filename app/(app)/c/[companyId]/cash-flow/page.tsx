@@ -416,7 +416,7 @@ export default async function CashFlowPage({
             {matrixParam === "year" ? (
               matrix ? <MatrixTable model={matrix} /> : <div className={styles.empty}>No matrix data.</div>
             ) : aggregateMatrix ? (
-              <AggregateMatrixTable model={aggregateMatrix} />
+              <AggregateMatrixTable model={aggregateMatrix} mode={matrixParam} />
             ) : (
               <div className={styles.empty}>No matrix data.</div>
             )}
