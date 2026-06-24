@@ -88,6 +88,16 @@
   align-items: center;
   margin-left: auto;
 }
+.zeroToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  color: var(--fcp-gray-600);
+  cursor: pointer;
+  align-self: flex-end;
+  padding-bottom: 6px;
+}
 .btnSm {
   border: none;
   cursor: pointer;
@@ -439,7 +449,8 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-width: 560px;
+  /* Full-width summary section above the statement detail. */
+  width: 100%;
 }
 .bridgeTitle {
   font-size: 11px;

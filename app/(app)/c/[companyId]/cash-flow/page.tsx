@@ -17,6 +17,19 @@ import { buildCashFlowMatrix, type MatrixPeriodInput } from "@/lib/domain/cashfl
 import { summarizeCashFlowCoverage, type CashFlowCoverageFact } from "@/lib/domain/cashflow/coverage";
 import { formatCashFlowRows } from "@/lib/domain/cashflow/format";
 import {
+  resolveStatementScopeKind,
+  shouldHideZeroRows,
+  pruneZeroRows,
+  aggregatePeriodBridge,
+  quarterRange,
+  halfRange,
+  fyRange,
+  QUARTER_LABEL,
+  HALF_LABEL,
+  MONTH_SHORT,
+  type StatementScopeKind,
+} from "@/lib/domain/cashflow/scope";
+import {
   adjacentPeriods,
   resolveOpeningBalance,
   isLockedOrClosed,
@@ -49,12 +62,24 @@ export default async function CashFlowPage({
   const toParam = one(sp.to);
   const periodIdParam = one(sp.periodId);
   const viewParam: CashFlowView = one(sp.view) === "matrix" ? "matrix" : "statement";
+  const scopeParam = one(sp.scope);
+  const yearParam = one(sp.year);
+  const qParam = one(sp.q);
+  const halfParam = one(sp.half);
+  const showZeroParam = one(sp.showZero) === "1";
+  const scopeKind: StatementScopeKind = resolveStatementScopeKind({
+    scope: scopeParam,
+    periodId: periodIdParam,
+    from: fromParam,
+    to: toParam,
+  });
 
   let canManagePeriods = false;
   let canSetOpening = false;
   let hasStructure = false;
   let hasAnyPeriod = false;
   let periods: { id: string; label: string }[] = [];
+  let years: number[] = [];
   let roots: ReturnType<typeof buildCashFlowTree>["roots"] = [];
   let rows: ReturnType<typeof formatCashFlowRows> = [];
   let net = 0;
@@ -80,6 +105,7 @@ export default async function CashFlowPage({
 
     const allPeriods = await listCashFlowPeriods(companyId);
     periods = allPeriods.map((p) => ({ id: p.id, label: p.label }));
+    years = [...new Set(allPeriods.filter((p) => p.month !== null).map((p) => p.year))].sort((a, b) => b - a);
     hasAnyPeriod = allPeriods.length > 0;
 
     const nodes = await listCashFlowNodes(companyId);
@@ -131,39 +157,87 @@ export default async function CashFlowPage({
       coverage = summarizeCashFlowCoverage(factsM);
     }
 
-    // Resolve the scope: an explicitly selected period wins; otherwise, in
-    // Statement mode with no manual date range, default to the latest monthly
-    // period (allPeriods is ordered newest-first, so the first month-level entry
-    // is the latest). A manual range or "no periods" keeps the prior behavior.
-    let range: CashFlowDateRange = {};
-    const latestMonthly = allPeriods.find((p) => p.month !== null);
-    const activePeriod = periodIdParam
-      ? allPeriods.find((p) => p.id === periodIdParam)
-      : !fromParam && !toParam && viewParam !== "matrix"
-        ? latestMonthly
-        : undefined;
-    if (activePeriod) {
-      inPeriodMode = true;
-      periodStatus = activePeriod.status;
-      periodEditable = canEditOpeningBalance({
-        status: activePeriod.status,
-        isCorrectionMode: activePeriod.isCorrectionMode,
-      });
-      periodFx = activePeriod.fxFluctuations ?? 0;
-      range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
-      scopeLabel = activePeriod.label;
-    } else {
-      range = { dateFrom: fromParam || undefined, dateTo: toParam || undefined };
-      if (fromParam || toParam) scopeLabel = `${fromParam || "start"} to ${toParam || "latest"}`;
-    }
-
-    // Statement-mode aggregation (matrix mode already populated its own coverage).
+    // ---- Statement scope resolution + aggregation (skipped in matrix mode) ----
     if (viewParam !== "matrix") {
+      const monthlyAsc = allPeriods
+        .filter((p) => p.month !== null)
+        .slice()
+        .sort((a, b) => (a.year !== b.year ? a.year - b.year : (a.month as number) - (b.month as number)));
+      const latestMonthly = allPeriods.find((p) => p.month !== null);
+      const year = Number(yearParam) || latestMonthly?.year || 0;
+
+      let range: CashFlowDateRange = {};
+      let activePeriod: (typeof allPeriods)[number] | undefined;
+
+      if (scopeKind === "month") {
+        // Explicit period wins; otherwise default to the latest monthly period.
+        activePeriod = periodIdParam
+          ? allPeriods.find((p) => p.id === periodIdParam && p.month !== null)
+          : latestMonthly;
+        if (activePeriod) {
+          inPeriodMode = true;
+          periodStatus = activePeriod.status;
+          periodEditable = canEditOpeningBalance({
+            status: activePeriod.status,
+            isCorrectionMode: activePeriod.isCorrectionMode,
+          });
+          periodFx = activePeriod.fxFluctuations ?? 0;
+          range = { dateFrom: activePeriod.dateFrom, dateTo: activePeriod.dateTo };
+          scopeLabel = `Selected period: ${activePeriod.label}`;
+        } else {
+          scopeLabel = "All transactions";
+        }
+      } else if (scopeKind === "quarter" || scopeKind === "half" || scopeKind === "fy") {
+        const q = Math.min(4, Math.max(1, Number(String(qParam).replace(/[^0-9]/g, "")) || 1));
+        const half = Number(String(halfParam).replace(/[^0-9]/g, "")) === 2 ? 2 : 1;
+        const r =
+          scopeKind === "quarter"
+            ? quarterRange(year, q)
+            : scopeKind === "half"
+              ? halfRange(year, half)
+              : fyRange(year);
+        range = { dateFrom: r.dateFrom, dateTo: r.dateTo };
+        const inRange = monthlyAsc.filter((p) => p.dateFrom >= r.dateFrom && p.dateTo <= r.dateTo);
+        const agg = aggregatePeriodBridge(
+          inRange.map((p) => ({
+            year: p.year,
+            month: p.month as number,
+            openingBalance: p.openingBalance,
+            fxFluctuations: p.fxFluctuations,
+          })),
+        );
+        periodFx = agg.fx;
+        const firstInRange = inRange[0];
+        // Opening = the first included month's opening (never invented).
+        opening = {
+          state: firstInRange?.openingBalanceSource ?? (agg.opening !== null ? "carried" : "missing"),
+          value: agg.opening,
+          candidate: null,
+        };
+        if (scopeKind === "quarter") scopeLabel = QUARTER_LABEL(year, q);
+        else if (scopeKind === "half") scopeLabel = HALF_LABEL(year, half);
+        else
+          scopeLabel =
+            agg.lastMonth !== null && agg.lastMonth < 12
+              ? `FY ${year} through ${MONTH_SHORT(agg.lastMonth)}`
+              : `FY ${year}`;
+      } else {
+        // Custom range: preserve prior safe behavior (no invented balances).
+        range = { dateFrom: fromParam || undefined, dateTo: toParam || undefined };
+        scopeLabel =
+          fromParam || toParam
+            ? `Custom range: ${fromParam || "start"} to ${toParam || "latest"}`
+            : "All transactions";
+      }
+
+      // Build the statement over the resolved range. Bridge totals use the full
+      // tree; the detail table optionally hides all-zero rows (never in FY).
       const txns = await listCashFlowTransactions(companyId, range);
       const statement = buildCashFlowTree(nodes, txns);
       roots = statement.roots;
       net = statement.net;
-      rows = formatCashFlowRows(statement);
+      const hideZero = shouldHideZeroRows(scopeKind, showZeroParam);
+      rows = formatCashFlowRows(hideZero ? pruneZeroRows(statement) : statement);
 
       const dirById = new Map(
         nodes.filter((n) => n.kind === "class").map((n) => [n.id, n.cashDirection]),
@@ -178,28 +252,26 @@ export default async function CashFlowPage({
         classDirection: t.classId ? dirById.get(t.classId) ?? null : null,
       }));
       coverage = summarizeCashFlowCoverage(facts);
-    }
 
-    if (activePeriod && viewParam !== "matrix") {
-      // Carried opening candidate = the previous period's closing, computed live
-      // (prev opening + prev net). Only knowable when the previous period itself
-      // has an opening balance; otherwise no candidate (never invented).
-      const { previous } = adjacentPeriods(allPeriods, activePeriod.id);
-      let previousClosing: number | null = null;
-      if (previous && previous.openingBalance !== null) {
-        // (previous closing includes its FX so the carried opening matches)
-        const prevTxns = await listCashFlowTransactions(companyId, {
-          dateFrom: previous.dateFrom,
-          dateTo: previous.dateTo,
+      // Month scope: resolve opening with a carried candidate from the prior
+      // period (aggregate scopes set their opening above).
+      if (scopeKind === "month" && activePeriod) {
+        const { previous } = adjacentPeriods(allPeriods, activePeriod.id);
+        let previousClosing: number | null = null;
+        if (previous && previous.openingBalance !== null) {
+          const prevTxns = await listCashFlowTransactions(companyId, {
+            dateFrom: previous.dateFrom,
+            dateTo: previous.dateTo,
+          });
+          const prevNet = buildCashFlowTree(nodes, prevTxns).net;
+          previousClosing = computeClosingBalance(previous.openingBalance, prevNet, previous.fxFluctuations ?? 0);
+        }
+        opening = resolveOpeningBalance({
+          openingBalance: activePeriod.openingBalance,
+          openingBalanceSource: activePeriod.openingBalanceSource,
+          previousClosing,
         });
-        const prevNet = buildCashFlowTree(nodes, prevTxns).net;
-        previousClosing = computeClosingBalance(previous.openingBalance, prevNet, previous.fxFluctuations ?? 0);
       }
-      opening = resolveOpeningBalance({
-        openingBalance: activePeriod.openingBalance,
-        openingBalanceSource: activePeriod.openingBalanceSource,
-        previousClosing,
-      });
     }
   }
 
@@ -216,7 +288,18 @@ export default async function CashFlowPage({
         <CashFlowFilters
           companyId={companyId}
           periods={periods}
-          current={{ from: fromParam, to: toParam, periodId: periodIdParam, view: viewParam }}
+          years={years}
+          current={{
+            from: fromParam,
+            to: toParam,
+            periodId: periodIdParam,
+            view: viewParam,
+            scope: scopeKind,
+            year: yearParam,
+            q: qParam,
+            half: halfParam,
+            showZero: showZeroParam,
+          }}
         />
 
         {!hasAnyPeriod && hasStructure && canManagePeriods && (
@@ -232,13 +315,7 @@ export default async function CashFlowPage({
         )}
 
         <div className={styles.scopeRow}>
-          <span className={styles.rangeHint}>
-            {inPeriodMode
-              ? `Selected period: ${scopeLabel}`
-              : fromParam || toParam
-                ? `Date range: ${fromParam || "start"} to ${toParam || "latest"}`
-                : "All transactions"}
-          </span>
+          <span className={styles.rangeHint}>{scopeLabel}</span>
           {inPeriodMode && periodStatus && (
             <span className={styles.periodBadge} data-locked={isLockedOrClosed(periodStatus)}>
               {PERIOD_STATUS_LABEL[periodStatus]}
