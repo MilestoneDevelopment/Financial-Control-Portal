@@ -48,6 +48,7 @@ import {
 import { CashFlowFilters, type CashFlowView, type MatrixMode } from "./CashFlowFilters";
 import { MatrixTable } from "./MatrixTable";
 import { AggregateMatrixTable } from "./AggregateMatrixTable";
+import { MatrixFullscreenShell } from "./MatrixFullscreenShell";
 import styles from "./cash-flow.module.css";
 
 export const dynamic = "force-dynamic";
@@ -410,16 +411,26 @@ export default async function CashFlowPage({
           </div>
         ) : viewParam === "matrix" ? (
           <div className={styles.statementCard}>
-            <div className={styles.cardTitle}>
-              {matrixParam === "quarter" ? "Matrix - by quarter" : matrixParam === "month" ? "Matrix - by month" : "Matrix"}
-            </div>
-            {matrixParam === "year" ? (
-              matrix ? <MatrixTable model={matrix} /> : <div className={styles.empty}>No matrix data.</div>
-            ) : aggregateMatrix ? (
-              <AggregateMatrixTable model={aggregateMatrix} mode={matrixParam} />
-            ) : (
-              <div className={styles.empty}>No matrix data.</div>
-            )}
+            <MatrixFullscreenShell
+              title={
+                matrixParam === "quarter"
+                  ? "Matrix - by quarter"
+                  : matrixParam === "month"
+                    ? "Matrix - by month"
+                    : "Matrix"
+              }
+              modeLabel={
+                matrixParam === "quarter" ? "Quarter view" : matrixParam === "month" ? "Month view" : "Year view"
+              }
+            >
+              {matrixParam === "year" ? (
+                matrix ? <MatrixTable model={matrix} /> : <div className={styles.empty}>No matrix data.</div>
+              ) : aggregateMatrix ? (
+                <AggregateMatrixTable model={aggregateMatrix} mode={matrixParam} />
+              ) : (
+                <div className={styles.empty}>No matrix data.</div>
+              )}
+            </MatrixFullscreenShell>
           </div>
         ) : (
           <>
