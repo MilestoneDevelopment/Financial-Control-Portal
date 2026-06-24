@@ -166,26 +166,7 @@ export default async function CashFlowPage({
       scopeLabel = monthly.length > 0
         ? `${monthly[0].label} - ${monthly[monthly.length - 1].label}`
         : "No monthly periods";
-      // Coverage in matrix mode reflects all transactions in the matrix range so
-      // the cards still answer "what is not in the statement?".
-      const dateFrom = monthly[0]?.dateFrom;
-      const dateTo = monthly[monthly.length - 1]?.dateTo;
-      const allTxns = dateFrom && dateTo
-        ? await listCashFlowTransactions(companyId, { dateFrom, dateTo })
-        : [];
-      const dirByIdM = new Map(
-        nodes.filter((n) => n.kind === "class").map((n) => [n.id, n.cashDirection]),
-      );
-      const factsM: CashFlowCoverageFact[] = allTxns.map((t) => ({
-        id: t.id,
-        classId: t.classId,
-        status: t.status,
-        source: t.source,
-        amountGel: t.amountGel,
-        fxStatus: t.fxStatus,
-        classDirection: t.classId ? dirByIdM.get(t.classId) ?? null : null,
-      }));
-      coverage = summarizeCashFlowCoverage(factsM);
+      // Matrix mode does not show a data-quality summary, so no coverage query here.
     }
 
     // ---- Statement scope resolution + aggregation (skipped in matrix mode) ----
