@@ -198,7 +198,11 @@ function rowClass(row: MatrixRow): string {
   if (row.kind === "section") return styles.rowSection;
   if (row.kind === "group") return row.isTotal ? styles.rowGroupTotal : styles.rowGroup;
   if (row.kind === "class") return styles.rowClass;
-  if (row.kind === "bridge-net" || row.kind === "bridge-closing") return styles.matrixBridgeStrong;
+  // Opening + closing balance rows get the strongest tint - they anchor the
+  // cash-balance bridge and must be easy to find when scanning.
+  if (row.kind === "bridge-opening" || row.kind === "bridge-closing") return styles.matrixBridgeBalance;
+  // Net + FX stay readable as part of the bridge band, one step quieter.
+  if (row.kind === "bridge-net") return styles.matrixBridgeStrong;
   return styles.matrixBridge;
 }
 
@@ -236,17 +240,17 @@ function MatrixRowView({
           {row.kind === "bridge-closing" && (
             <span
               className={styles.srcTag}
-              title="Year subtotal and Total column carry the last month's closing balance (not a sum)."
+              title="Uses the last visible period's closing balance (not a sum)."
             >
-              carry
+              Last month closing
             </span>
           )}
           {row.kind === "bridge-opening" && (
             <span
               className={styles.srcTag}
-              title="Year subtotal = the year's first opening. Grand Total is not a sum."
+              title="Uses the first visible period's opening balance (not a sum)."
             >
-              first
+              First month opening
             </span>
           )}
         </span>

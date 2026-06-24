@@ -634,9 +634,11 @@
   background: var(--fcp-surface);
   text-align: left;
   color: var(--fcp-gray-700);
-  /* Tight label column - moves the vertical separator close to labels. Long
-   * labels truncate with ellipsis and expose full text via title tooltip. */
-  min-width: 200px;
+  /* FIXED width: min == max == width pins the column so the separator never
+   * moves when the visible year window changes - only the numeric columns to
+   * the right flex. Long labels truncate with ellipsis (full text on hover). */
+  width: 240px;
+  min-width: 240px;
   max-width: 240px;
   border-right: 1px solid var(--fcp-line);
   box-shadow: 5px 0 5px -5px rgba(15, 23, 32, 0.1);
@@ -733,6 +735,7 @@
   color: var(--fcp-gray-700);
   font-weight: 400;
 }
+/* Net + FX: readable bridge rows, one step quieter than the balance rows. */
 .matrixBridge th.matrixLabelCol,
 .matrixBridge td {
   background: #fafbfc;
@@ -746,17 +749,30 @@
   font-weight: 700;
 }
 /*
- * Strong horizontal separators around the cash-balance bridge. The first bridge
- * row gets a heavier top rule so the chain reads as a distinct band.
+ * Opening + closing balance rows: the strongest (but still clean) tint so they
+ * anchor the bridge and are easy to spot when scanning.
  */
-.matrixBridge:first-of-type th.matrixLabelCol,
-.matrixBridge:first-of-type td,
-.matrixBridgeStrong:first-of-type th.matrixLabelCol,
-.matrixBridgeStrong:first-of-type td {
+.matrixBridgeBalance th.matrixLabelCol,
+.matrixBridgeBalance td {
+  background: var(--fcp-accent-tint, #eef4f8);
+  color: var(--fcp-ink);
+  font-weight: 700;
+}
+/*
+ * Band separators: the opening row (first bridge row) gets a heavy top rule so
+ * the cash-balance band is clearly divided from the line items above; net +
+ * closing keep a light top rule inside the band.
+ */
+.matrixBridgeBalance:first-of-type th.matrixLabelCol,
+.matrixBridgeBalance:first-of-type td {
   border-top: 2px solid var(--fcp-line);
 }
 .matrixBridgeStrong th.matrixLabelCol,
 .matrixBridgeStrong td {
+  border-top: 1px solid var(--fcp-line);
+}
+.matrixBridgeBalance th.matrixLabelCol,
+.matrixBridgeBalance td {
   border-top: 1px solid var(--fcp-line);
 }
 
